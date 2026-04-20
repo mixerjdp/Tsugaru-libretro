@@ -851,6 +851,14 @@ void ProfileDialog::Make(const UiText &ui)
 				"if the mouse connected to game ports.\n"
 			);
 			break;
+		case TOWNS_APPSPECIFIC_QODGAIDEN:
+			appSpecificExplanation->SetText(
+				"Queen of Duellist Gaiden / Gaiden Alpha, Data East\n"
+				"CD-ROM timing compatibility.\n"
+				"This option relaxes a CD-ROM IRQ quirk that can\n"
+				"stall the game while it is draining 4C2 during MODE1 reads.\n"
+			);
+			break;
 		}
 	}
 }

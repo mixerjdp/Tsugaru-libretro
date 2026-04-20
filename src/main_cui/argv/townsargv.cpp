@@ -366,6 +366,9 @@ void TownsARGV::PrintApplicationList(void) const
 	std::cout << "  Mouse integration." << std::endl;
 	std::cout << "ULTIMAUNDERWORLD" << std::endl;
 	std::cout << "  Mouse integration." << std::endl;
+	std::cout << "QODGAIDEN" << std::endl;
+	std::cout << "  Queen of Duellist Gaiden / Gaiden Alpha." << std::endl;
+	std::cout << "  CD-ROM timing compatibility quirk." << std::endl;
 }
 
 void TownsARGV::CopyFile(std::string src,std::string dst)

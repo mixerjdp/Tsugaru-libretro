@@ -1508,7 +1508,9 @@ YsWString FsGuiMainCanvas::GetTsugaruProfileDir(void) const
 	}
 	else
 	{
-		path.MakeFullPathName(YsSpecialPath::GetUserDocDirW(),L"Tsugaru_TOWNS");
+		std::unique_ptr <FsSimpleWindowConnection> outside_world(new FsSimpleWindowConnection);
+		auto progDir=outside_world->GetProgramResourceDirectory();
+		YsSystemEncodingToUnicode(path,progDir.c_str());
 		YsFileIO::MkDir(path);
 	}
 	return path;

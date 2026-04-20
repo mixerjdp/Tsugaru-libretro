@@ -88,6 +88,17 @@ static std::string DiscImgMSFToString(const DiscImage::MinSecFrm &msf)
 	return oss.str();
 }
 
+static uint32_t DiscImgChecksum32(const unsigned char *data,size_t len)
+{
+	uint32_t sum=0;
+	for(size_t i=0; i<len; ++i)
+	{
+		sum=(sum<<5) | (sum>>27);
+		sum^=data[i];
+	}
+	return sum;
+}
+
 struct DiscImage::ChdState
 {
 	struct ChdTrack
@@ -219,12 +230,6 @@ static bool CHDLoadRawSector(DiscImage::ChdState &st,uint64_t rawSectorIndex,uns
 
 	auto hunknum=static_cast<uint32_t>(rawSectorIndex/st.unitsPerHunk);
 	auto hunkofs=static_cast<uint32_t>(rawSectorIndex%st.unitsPerHunk);
-	DISCIMG_TRACE_LN("CHD raw sector request rawIndex=" << rawSectorIndex
-		<< " hunk=" << hunknum
-		<< " hunkOfs=" << hunkofs
-		<< " unitBytes=" << st.unitBytes
-		<< " unitsPerHunk=" << st.unitsPerHunk
-		<< " cache=" << (st.oldHunk==static_cast<int>(hunknum) ? "hit" : "miss"));
 	if(st.oldHunk!=static_cast<int>(hunknum))
 	{
 		auto err=chd_read(st.chd,hunknum,st.hunkmem.data());
@@ -1915,26 +1920,16 @@ bool DiscImage::ReadCHDRawSector(uint64_t rawSectorIndex,unsigned char *sector) 
 std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned int numSec) const
 {
 	std::vector <unsigned char> data;
-	DISCIMG_TRACE_LN("ReadSectorMODE1 request HSG=" << HSG << " numSec=" << numSec << " chd=" << (nullptr!=chdState ? "yes" : "no"));
 
 	if(nullptr!=chdState)
 	{
 		if(0<tracks.size())
 		{
 			auto trackIndex=FindTrackIndexFromHSG(tracks,HSG);
-			if(0>trackIndex)
-			{
-				DISCIMG_TRACE_LN("  CHD MODE1 no track for HSG=" << HSG << " tracks=" << tracks.size());
-			}
 			if(0<=trackIndex && (TRACK_MODE1_DATA==tracks[trackIndex].trackType || TRACK_MODE2_DATA==tracks[trackIndex].trackType))
 			{
 				auto const &trk=tracks[trackIndex];
 				auto const &chdTrk=chdState->tracks[trackIndex];
-				DISCIMG_TRACE_LN("  CHD MODE1 track=" << (trackIndex+1) << " type=" << DiscImgTrackTypeName(trk.trackType)
-					<< " start=" << DiscImgMSFToString(trk.start)
-					<< " end=" << DiscImgMSFToString(trk.end)
-					<< " fileOffset=" << chdTrk.fileOffset
-					<< " unitBytes=" << chdState->unitBytes);
 				if(HSG+numSec<=trk.end.ToHSG()+1)
 				{
 					data.assign(numSec*MODE1_BYTES_PER_SECTOR,0);
@@ -1942,9 +1937,13 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned
 					for(unsigned int sec=0; sec<numSec; ++sec)
 					{
 						auto rawIndex=chdTrk.fileOffset+(HSG-trk.start.ToHSG())+sec;
-						DISCIMG_TRACE_LN("    CHD MODE1 sector HSG=" << (HSG+sec) << " rawIndex=" << rawIndex);
 						if(true==ReadCHDRawSector(rawIndex,rawSector.data()))
 						{
+							DISCIMG_TRACE_LN("  CHD MODE1 sector"
+								<< " hsg=" << (HSG+sec)
+								<< " track=" << (trackIndex+1)
+								<< " rawIndex=" << rawIndex
+								<< " checksum=" << cpputil::Ubtox(DiscImgChecksum32(rawSector.data(),rawSector.size())));
 							memcpy(data.data()+sec*MODE1_BYTES_PER_SECTOR,rawSector.data()+16,MODE1_BYTES_PER_SECTOR);
 						}
 					}
@@ -1966,24 +1965,26 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned
 				{
 					auto sectorIntoTrack=HSG-tracks[0].start.ToHSG();
 					auto locationInTrack=sectorIntoTrack*tracks[0].sectorLength;
-					DISCIMG_TRACE_LN("  CUE MODE1 file=" << binaries[0].fName << " track=1 type=" << DiscImgTrackTypeName(tracks[0].trackType)
-						<< " start=" << DiscImgMSFToString(tracks[0].start)
-						<< " end=" << DiscImgMSFToString(tracks[0].end)
-						<< " locationInFile=" << tracks[0].locationInFile
-						<< " readOffset=" << (tracks[0].locationInFile+locationInTrack));
 
 					ifp.seekg(tracks[0].locationInFile+locationInTrack,std::ios::beg);
 					data.resize(numSec*MODE1_BYTES_PER_SECTOR);
 					if(MODE1_BYTES_PER_SECTOR==tracks[0].sectorLength)
 					{
 						ifp.read((char *)data.data(),MODE1_BYTES_PER_SECTOR*numSec);
+						if(g_discimgTrace)
+						{
+							DISCIMG_TRACE_LN("  CUE MODE1 sector"
+								<< " hsg=" << HSG
+								<< " track=1"
+								<< " fileOffset=" << tracks[0].locationInFile
+								<< " checksum=" << cpputil::Ubtox(DiscImgChecksum32(data.data(),data.size())));
+						}
 					}
 					else
 					{
 							unsigned int dataPointer=0;
 							for(int i=0; i<(int)numSec; ++i)
 							{
-								DISCIMG_TRACE_LN("    CUE MODE1 sector HSG=" << (HSG+i) << " fileOffset=" << (tracks[0].locationInFile+locationInTrack+i*tracks[0].sectorLength));
 								ifp.read(skipBuf,16);
 								ifp.read((char *)data.data()+dataPointer,MODE1_BYTES_PER_SECTOR);
 								ifp.read(skipBuf,tracks[0].sectorLength-MODE1_BYTES_PER_SECTOR-16);
@@ -2003,11 +2004,6 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned
 					auto locationInTrack=sectorIntoTrack*tracks[0].sectorLength;
 
 					auto filePtr=tracks[0].locationInFile+locationInTrack;
-					DISCIMG_TRACE_LN("  CUE MODE1 cache track=1 type=" << DiscImgTrackTypeName(tracks[0].trackType)
-						<< " start=" << DiscImgMSFToString(tracks[0].start)
-						<< " end=" << DiscImgMSFToString(tracks[0].end)
-						<< " filePtr=" << filePtr
-						<< " cacheSize=" << binaryCache.size());
 					data.resize(numSec*MODE1_BYTES_PER_SECTOR);
 					if(MODE1_BYTES_PER_SECTOR==tracks[0].sectorLength)
 					{
@@ -2020,7 +2016,6 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned
 						unsigned int dataPointer=0;
 						for(int i=0; i<(int)numSec && filePtr+MODE1_BYTES_PER_SECTOR<=binaryCache.size(); ++i)
 						{
-							DISCIMG_TRACE_LN("    CUE MODE1 cache sector HSG=" << (HSG+i) << " filePtr=" << filePtr);
 							filePtr+=16;
 							memcpy(data.data()+dataPointer,binaryCache.data()+filePtr,MODE1_BYTES_PER_SECTOR);
 							filePtr+=tracks[0].sectorLength;
@@ -2037,26 +2032,16 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE1(unsigned int HSG,unsigned
 std::vector <unsigned char> DiscImage::ReadSectorRAW(unsigned int HSG,unsigned int numSec) const
 {
 	std::vector <unsigned char> data;
-	DISCIMG_TRACE_LN("ReadSectorRAW request HSG=" << HSG << " numSec=" << numSec << " chd=" << (nullptr!=chdState ? "yes" : "no"));
 
 	if(nullptr!=chdState)
 	{
 		if(0<tracks.size())
 		{
 			auto trackIndex=FindTrackIndexFromHSG(tracks,HSG);
-			if(0>trackIndex)
-			{
-				DISCIMG_TRACE_LN("  CHD RAW no track for HSG=" << HSG << " tracks=" << tracks.size());
-			}
 			if(0<=trackIndex && (TRACK_MODE1_DATA==tracks[trackIndex].trackType || TRACK_MODE2_DATA==tracks[trackIndex].trackType))
 			{
 				auto const &trk=tracks[trackIndex];
 				auto const &chdTrk=chdState->tracks[trackIndex];
-				DISCIMG_TRACE_LN("  CHD RAW track=" << (trackIndex+1) << " type=" << DiscImgTrackTypeName(trk.trackType)
-					<< " start=" << DiscImgMSFToString(trk.start)
-					<< " end=" << DiscImgMSFToString(trk.end)
-					<< " fileOffset=" << chdTrk.fileOffset
-					<< " unitBytes=" << chdState->unitBytes);
 				if(HSG+numSec<=trk.end.ToHSG()+1)
 				{
 					data.assign(numSec*RAW_BYTES_PER_SECTOR,0);
@@ -2064,7 +2049,6 @@ std::vector <unsigned char> DiscImage::ReadSectorRAW(unsigned int HSG,unsigned i
 					for(unsigned int sec=0; sec<numSec; ++sec)
 					{
 						auto rawIndex=chdTrk.fileOffset+(HSG-trk.start.ToHSG())+sec;
-						DISCIMG_TRACE_LN("    CHD RAW sector HSG=" << (HSG+sec) << " rawIndex=" << rawIndex);
 						if(true==ReadCHDRawSector(rawIndex,rawSector.data()))
 						{
 							auto dst=data.data()+sec*RAW_BYTES_PER_SECTOR;
@@ -2087,11 +2071,6 @@ std::vector <unsigned char> DiscImage::ReadSectorRAW(unsigned int HSG,unsigned i
 			{
 				auto sectorIntoTrack=HSG-tracks[0].start.ToHSG();
 				auto locationInTrack=sectorIntoTrack*tracks[0].sectorLength;
-				DISCIMG_TRACE_LN("  CUE RAW file=" << binaries[0].fName << " track=1 type=" << DiscImgTrackTypeName(tracks[0].trackType)
-					<< " start=" << DiscImgMSFToString(tracks[0].start)
-					<< " end=" << DiscImgMSFToString(tracks[0].end)
-					<< " locationInFile=" << tracks[0].locationInFile
-					<< " readOffset=" << (tracks[0].locationInFile+locationInTrack));
 
 				ifp.seekg(tracks[0].locationInFile+locationInTrack,std::ios::beg);
 				data.resize(numSec*RAW_BYTES_PER_SECTOR);
@@ -2104,7 +2083,6 @@ std::vector <unsigned char> DiscImage::ReadSectorRAW(unsigned int HSG,unsigned i
 					unsigned int dataPointer=0;
 					for(int i=0; i<(int)numSec; ++i)
 					{
-						DISCIMG_TRACE_LN("    CUE RAW sector HSG=" << (HSG+i) << " fileOffset=" << (tracks[0].locationInFile+locationInTrack+i*tracks[0].sectorLength));
 						ifp.read((char *)data.data()+4+dataPointer,MODE1_BYTES_PER_SECTOR);
 						dataPointer+=RAW_BYTES_PER_SECTOR;
 					}
@@ -2136,26 +2114,16 @@ std::vector <unsigned char> DiscImage::ReadSectorRAW(unsigned int HSG,unsigned i
 std::vector <unsigned char> DiscImage::ReadSectorMODE2(unsigned int HSG,unsigned int numSec) const
 {
 	std::vector <unsigned char> data;
-	DISCIMG_TRACE_LN("ReadSectorMODE2 request HSG=" << HSG << " numSec=" << numSec << " chd=" << (nullptr!=chdState ? "yes" : "no"));
 
 	if(nullptr!=chdState)
 	{
 		if(0<tracks.size())
 		{
 			auto trackIndex=FindTrackIndexFromHSG(tracks,HSG);
-			if(0>trackIndex)
-			{
-				DISCIMG_TRACE_LN("  CHD MODE2 no track for HSG=" << HSG << " tracks=" << tracks.size());
-			}
 			if(0<=trackIndex && (TRACK_MODE1_DATA==tracks[trackIndex].trackType || TRACK_MODE2_DATA==tracks[trackIndex].trackType))
 			{
 				auto const &trk=tracks[trackIndex];
 				auto const &chdTrk=chdState->tracks[trackIndex];
-				DISCIMG_TRACE_LN("  CHD MODE2 track=" << (trackIndex+1) << " type=" << DiscImgTrackTypeName(trk.trackType)
-					<< " start=" << DiscImgMSFToString(trk.start)
-					<< " end=" << DiscImgMSFToString(trk.end)
-					<< " fileOffset=" << chdTrk.fileOffset
-					<< " unitBytes=" << chdState->unitBytes);
 				if(HSG+numSec<=trk.end.ToHSG()+1)
 				{
 					data.assign(numSec*RAW_BYTES_PER_SECTOR,0);
@@ -2163,7 +2131,6 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE2(unsigned int HSG,unsigned
 					for(unsigned int sec=0; sec<numSec; ++sec)
 					{
 						auto rawIndex=chdTrk.fileOffset+(HSG-trk.start.ToHSG())+sec;
-						DISCIMG_TRACE_LN("    CHD MODE2 sector HSG=" << (HSG+sec) << " rawIndex=" << rawIndex);
 						if(true==ReadCHDRawSector(rawIndex,rawSector.data()))
 						{
 							auto dst=data.data()+sec*RAW_BYTES_PER_SECTOR;
@@ -2187,11 +2154,6 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE2(unsigned int HSG,unsigned
 			{
 				auto sectorIntoTrack=HSG-tracks[0].start.ToHSG();
 				auto locationInTrack=sectorIntoTrack*tracks[0].sectorLength;
-				DISCIMG_TRACE_LN("  CUE MODE2 file=" << binaries[0].fName << " track=1 type=" << DiscImgTrackTypeName(tracks[0].trackType)
-					<< " start=" << DiscImgMSFToString(tracks[0].start)
-					<< " end=" << DiscImgMSFToString(tracks[0].end)
-					<< " locationInFile=" << tracks[0].locationInFile
-					<< " readOffset=" << (tracks[0].locationInFile+locationInTrack));
 
 				ifp.seekg(tracks[0].locationInFile+locationInTrack,std::ios::beg);
 				data.resize(numSec*RAW_BYTES_PER_SECTOR);
@@ -2204,7 +2166,6 @@ std::vector <unsigned char> DiscImage::ReadSectorMODE2(unsigned int HSG,unsigned
 					unsigned int dataPointer=0;
 					for(int i=0; i<(int)numSec; ++i)
 					{
-						DISCIMG_TRACE_LN("    CUE MODE2 sector HSG=" << (HSG+i) << " fileOffset=" << (tracks[0].locationInFile+locationInTrack+i*tracks[0].sectorLength));
 						ifp.read((char *)data.data()+4+dataPointer,MODE2_BYTES_PER_SECTOR);
 						dataPointer+=RAW_BYTES_PER_SECTOR;
 					}
@@ -2272,17 +2233,6 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 			auto endHSG=endMSF.ToHSG();
 			std::vector<unsigned char> rawSector(chdState->unitBytes);
 			auto copySize=std::min<unsigned int>(AUDIO_SECTOR_SIZE,chdState->unitBytes);
-			auto calcDigest=[&](const unsigned char *ptr,unsigned int n)->unsigned int
-			{
-				unsigned int digest=2166136261u;
-				for(unsigned int i=0; i<n; ++i)
-				{
-					digest^=ptr[i];
-					digest*=16777619u;
-				}
-				return digest;
-			};
-			int lastKind=-1;
 			int lastTrackIndex=-1;
 			unsigned int segmentStartHSG=startHSG;
 			unsigned int segmentEndHSG=startHSG;
@@ -2317,31 +2267,18 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 			for(unsigned int hsg=startHSG; hsg<endHSG; ++hsg)
 			{
 				auto trackIndex=FindTrackIndexFromHSG(tracks,hsg);
-				int kind=(0<=trackIndex && TRACK_AUDIO==tracks[trackIndex].trackType ? 1 : 0);
-				if(trackIndex!=lastTrackIndex || kind!=lastKind)
+				auto thisTrackIndex=(0<=trackIndex && TRACK_AUDIO==tracks[trackIndex].trackType ? trackIndex : -1);
+				if(thisTrackIndex!=lastTrackIndex)
 				{
 					flushCHDSegment();
-					lastTrackIndex=trackIndex;
-					lastKind=kind;
+					lastTrackIndex=thisTrackIndex;
 					segmentStartHSG=hsg;
-				}
-				if(0>trackIndex)
-				{
-					DISCIMG_TRACE_LN("  CHD WAV sector hsg=" << hsg << " kind=gap rawIndex=-1 copySize=" << copySize << " note=no-track");
 				}
 				if(0<=trackIndex && TRACK_AUDIO==tracks[trackIndex].trackType)
 				{
 					auto const &trk=tracks[trackIndex];
 					auto const &chdTrk=chdState->tracks[trackIndex];
 					auto rawIndex=chdTrk.fileOffset+(hsg-trk.start.ToHSG());
-					DISCIMG_TRACE_LN("  CHD WAV sector hsg=" << hsg
-						<< " track=" << (trackIndex+1)
-						<< " type=" << DiscImgTrackTypeName(trk.trackType)
-						<< " rawIndex=" << rawIndex
-						<< " fileOffset=" << chdTrk.fileOffset
-						<< " trackStartHSG=" << trk.start.ToHSG()
-						<< " copySize=" << copySize
-						<< " msbFirst=" << (chdTrk.rawAudioMSBFirst ? "yes" : "no"));
 					if(true==ReadCHDRawSector(rawIndex,rawSector.data()))
 					{
 						if(true==chdTrk.rawAudioMSBFirst)
@@ -2354,19 +2291,15 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 						auto cur=wave.size();
 						wave.resize(cur+copySize);
 						memcpy(wave.data()+cur,rawSector.data(),copySize);
-						auto digest=calcDigest(rawSector.data(),copySize);
-						DISCIMG_TRACE_LN("    CHD WAV sector digest hsg=" << hsg << " digest=0x" << std::hex << digest << std::dec);
 						segmentEndHSG=hsg+1;
 						segmentBytes+=copySize;
 					}
 				}
 				else
 				{
-					DISCIMG_TRACE_LN("  CHD WAV sector hsg=" << hsg << " kind=gap rawIndex=-1 copySize=" << copySize);
 					auto cur=wave.size();
 					wave.resize(cur+copySize);
 					memset(wave.data()+cur,0,copySize);
-					DISCIMG_TRACE_LN("    CHD WAV sector digest hsg=" << hsg << " digest=0x00000000");
 					segmentEndHSG=hsg+1;
 					segmentBytes+=copySize;
 				}
@@ -2429,13 +2362,12 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 					<< " type=" << DiscImgLayoutTypeName(layoutType)
 					<< " startHSG=" << layout[i].startHSG
 					<< " endHSG=" << ((layout[i+1].startHSG<=endHSG ? layout[i+1].startHSG : endHSG)-1)
-					<< " readFrom=" << readFrom
-					<< " readTo=" << readTo
-					<< " sectorLength=" << layoutSectorLength);
+				<< " readFrom=" << readFrom
+				<< " readTo=" << readTo
+				<< " sectorLength=" << layoutSectorLength);
 				if(layoutSectorLength<=AUDIO_SECTOR_SIZE)
 				{
 					auto readSize=(readTo-readFrom)&(~3);
-					auto sectorCount=(readSize/layoutSectorLength);
 
 				#ifdef DEBUG_DISCIMG
 					std::cout << readFrom << " " << readTo << " " << readSize << " " << std::endl;
@@ -2457,30 +2389,7 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 						if(ifp.is_open())
 						{
 							ifp.seekg(readFrom-bin.byteOffsetInDisc+bin.bytesToSkip,std::ios::beg);
-							for(unsigned int s=0; s<sectorCount; ++s)
-							{
-								auto sectorReadFrom=readFrom+layoutSectorLength*s;
-								auto sectorHSG=layout[i].startHSG+(sectorReadFrom-readFrom)/layoutSectorLength;
-								DISCIMG_TRACE_LN("  CUE WAV sector hsg=" << sectorHSG
-									<< " track=" << (i+1)
-									<< " type=" << DiscImgLayoutTypeName(layoutType)
-									<< " readFrom=" << sectorReadFrom
-									<< " readTo=" << (sectorReadFrom+layoutSectorLength)
-									<< " sectorLength=" << layoutSectorLength);
-							}
 							ifp.read((char *)(wave.data()+curSize),readSize);
-							for(unsigned int s=0; s<sectorCount; ++s)
-							{
-								auto sectorPtr=wave.data()+curSize+layoutSectorLength*s;
-								unsigned int digest=2166136261u;
-								for(unsigned int i=0; i<layoutSectorLength; ++i)
-								{
-									digest^=sectorPtr[i];
-									digest*=16777619u;
-								}
-								auto sectorHSG=layout[i].startHSG+s;
-								DISCIMG_TRACE_LN("    CUE WAV sector digest hsg=" << sectorHSG << " digest=0x" << std::hex << digest << std::dec);
-							}
 							ifp.close();
 						}
 					}
@@ -2508,21 +2417,7 @@ std::vector <unsigned char> DiscImage::GetWave(MinSecFrm startMSF,MinSecFrm endM
 							ifp.seekg(readFrom-bin.byteOffsetInDisc+bin.bytesToSkip,std::ios::beg);
 							for(auto filePos=readFrom; filePos<readTo; filePos+=layoutSectorLength)
 							{
-								auto sectorHSG=layout[i].startHSG+(filePos-readFrom)/layoutSectorLength;
-								DISCIMG_TRACE_LN("  CUE WAV sector hsg=" << sectorHSG
-									<< " track=" << (i+1)
-									<< " type=" << DiscImgLayoutTypeName(layoutType)
-									<< " readFrom=" << filePos
-									<< " readTo=" << (filePos+layoutSectorLength)
-									<< " sectorLength=" << layoutSectorLength);
 								ifp.read((char *)(wave.data()+curPos),AUDIO_SECTOR_SIZE);
-								unsigned int digest=2166136261u;
-								for(unsigned int j=0; j<AUDIO_SECTOR_SIZE; ++j)
-								{
-									digest^=wave[curPos+j];
-									digest*=16777619u;
-								}
-								DISCIMG_TRACE_LN("    CUE WAV sector digest hsg=" << sectorHSG << " digest=0x" << std::hex << digest << std::dec);
 								if(AUDIO_SECTOR_SIZE<layoutSectorLength)
 								{
 									ifp.read(skipBuf,layoutSectorLength-AUDIO_SECTOR_SIZE);
