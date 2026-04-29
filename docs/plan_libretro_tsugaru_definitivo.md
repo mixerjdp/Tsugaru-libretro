@@ -12,6 +12,10 @@ Objetivo del primer entregable (MVP):
 - Input util (pad, teclado, mouse).
 - Persistencia basica de CMOS.
 
+Estado actual:
+- El core libretro ya expone savestates usando `SaveStateMem/LoadStateMem`.
+- Falta robustecerlos al nivel de XM62026 con validaciones extra y guard frames si se quiere el mismo comportamiento exacto.
+
 No objetivo del MVP:
 - Save states expuestos al usuario final sin validacion robusta.
 - Swap multi-disco complejo con M3U.
@@ -258,6 +262,10 @@ Tareas:
 Condicion de salida:
 - habilitar oficialmente solo si round-trip es estable y sin corrupcion visible.
 
+Estado:
+- Implementado en el core libretro actual con snapshot cacheado y tamaño exacto.
+- Pendiente si se busca paridad total con XM62026: guard frames post-load, reaplicacion de opciones runtime y pruebas de corrupcion de estado.
+
 ---
 
 ## Fase 8 - Multi-disco / M3U / disk control (post-MVP) (4-8 dias)
@@ -310,4 +318,3 @@ Total con save states + multi-disco maduro: 6-8 semanas.
 - Audio estable sin cortes severos.
 - Input util (pad+teclado+mouse).
 - CMOS persistente.
-

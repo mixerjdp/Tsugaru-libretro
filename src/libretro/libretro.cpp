@@ -50,6 +50,11 @@ std::string content_path;
 std::string system_directory;
 std::string save_directory;
 uint64_t frame_counter = 0;
+std::mutex savestate_lock;
+std::vector<uint8_t> savestate_snapshot;
+size_t savestate_snapshot_size = 0;
+uint64_t savestate_snapshot_frame = ~0ULL;
+bool savestate_snapshot_valid = false;
 
 unsigned int port0_type = TOWNS_GAMEPORTEMU_PHYSICAL0;
 unsigned int port1_type = TOWNS_GAMEPORTEMU_MOUSE;
@@ -1573,6 +1578,41 @@ void poll_input()
 {
 	// Input polling is now done directly in DevicePolling
 }
+
+void InvalidateSavestateSnapshot()
+{
+	std::lock_guard<std::mutex> lock(savestate_lock);
+	savestate_snapshot.clear();
+	savestate_snapshot_size = 0;
+	savestate_snapshot_frame = ~0ULL;
+	savestate_snapshot_valid = false;
+}
+
+bool CaptureSavestateSnapshot()
+{
+	if(nullptr == runtime.towns || false == runtime.loaded)
+	{
+		InvalidateSavestateSnapshot();
+		return false;
+	}
+
+	try
+	{
+		auto state = runtime.towns->SaveStateMem();
+		std::lock_guard<std::mutex> lock(savestate_lock);
+		savestate_snapshot = std::move(state);
+		savestate_snapshot_size = savestate_snapshot.size();
+		savestate_snapshot_frame = frame_counter;
+		savestate_snapshot_valid = true;
+		return true;
+	}
+	catch(...)
+	{
+		InvalidateSavestateSnapshot();
+		log(RETRO_LOG_WARN, "Tsugaru libretro: savestate capture failed.\n");
+		return false;
+	}
+}
 }
 
 TSUGARU_RETRO_API void retro_set_environment(retro_environment_t cb)
@@ -1660,6 +1700,7 @@ TSUGARU_RETRO_API void retro_get_system_av_info(retro_system_av_info *info)
 TSUGARU_RETRO_API void retro_init(void)
 {
 	frame_counter = 0;
+	InvalidateSavestateSnapshot();
 	
 	// Register keyboard callback
 	if (environ_cb)
@@ -1675,6 +1716,7 @@ TSUGARU_RETRO_API void retro_init(void)
 TSUGARU_RETRO_API void retro_deinit(void)
 {
 	runtime.unload();
+	InvalidateSavestateSnapshot();
 }
 
 TSUGARU_RETRO_API void retro_reset(void)
@@ -1683,11 +1725,13 @@ TSUGARU_RETRO_API void retro_reset(void)
 	retro_game_info game{};
 	game.path = content_path.empty() ? nullptr : content_path.c_str();
 	runtime.load(&game);
+	InvalidateSavestateSnapshot();
 }
 
 TSUGARU_RETRO_API bool retro_load_game(const retro_game_info *game)
 {
 	frame_counter = 0;
+	InvalidateSavestateSnapshot();
 	return runtime.load(game);
 }
 
@@ -1700,6 +1744,7 @@ TSUGARU_RETRO_API void retro_unload_game(void)
 {
 	runtime.unload();
 	frame_counter = 0;
+	InvalidateSavestateSnapshot();
 }
 
 TSUGARU_RETRO_API unsigned retro_get_region(void)
@@ -1725,17 +1770,90 @@ TSUGARU_RETRO_API void retro_run(void)
 
 TSUGARU_RETRO_API size_t retro_serialize_size(void)
 {
-	return 0;
+	if(false == runtime.loaded || nullptr == runtime.towns)
+	{
+		InvalidateSavestateSnapshot();
+		return 0;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(savestate_lock);
+		if(true == savestate_snapshot_valid && savestate_snapshot_frame == frame_counter)
+		{
+			return savestate_snapshot_size;
+		}
+	}
+
+	if(false == CaptureSavestateSnapshot())
+	{
+		return 0;
+	}
+
+	std::lock_guard<std::mutex> lock(savestate_lock);
+	return savestate_snapshot_size;
 }
 
-TSUGARU_RETRO_API bool retro_serialize(void *, size_t)
+TSUGARU_RETRO_API bool retro_serialize(void *data, size_t size)
 {
-	return false;
+	if(false == runtime.loaded || nullptr == runtime.towns || nullptr == data)
+	{
+		return false;
+	}
+
+	{
+		std::lock_guard<std::mutex> lock(savestate_lock);
+		if(true == savestate_snapshot_valid && savestate_snapshot_frame == frame_counter)
+		{
+			if(savestate_snapshot_size > size)
+			{
+				return false;
+			}
+			std::memcpy(data, savestate_snapshot.data(), savestate_snapshot_size);
+			return true;
+		}
+	}
+
+	if(false == CaptureSavestateSnapshot())
+	{
+		return false;
+	}
+
+	std::lock_guard<std::mutex> lock(savestate_lock);
+	if(savestate_snapshot_size > size)
+	{
+		return false;
+	}
+	std::memcpy(data, savestate_snapshot.data(), savestate_snapshot_size);
+	return true;
 }
 
-TSUGARU_RETRO_API bool retro_unserialize(const void *, size_t)
+TSUGARU_RETRO_API bool retro_unserialize(const void *data, size_t size)
 {
-	return false;
+	if(false == runtime.loaded || nullptr == runtime.towns || nullptr == data)
+	{
+		return false;
+	}
+
+	bool ok = false;
+	try
+	{
+		const auto *bytes = static_cast<const uint8_t *>(data);
+		std::vector<uint8_t> state(bytes, bytes + size);
+		ok = runtime.towns->LoadStateMem(state);
+	}
+	catch(...)
+	{
+		ok = false;
+	}
+	if(true == ok)
+	{
+		InvalidateSavestateSnapshot();
+	}
+	else
+	{
+		log(RETRO_LOG_WARN, "Tsugaru libretro: savestate load failed.\n");
+	}
+	return ok;
 }
 
 TSUGARU_RETRO_API void retro_cheat_reset(void)
