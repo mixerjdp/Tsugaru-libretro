@@ -524,6 +524,11 @@ bool is_cd_extension(const std::string &ext)
 	       "mdf" == ext || "ccd" == ext || "chd" == ext;
 }
 
+bool is_m3u_extension(const std::string &ext)
+{
+	return "m3u" == ext;
+}
+
 bool is_bin_extension(const std::string &ext)
 {
 	return "bin" == ext;
@@ -538,6 +543,167 @@ bool is_floppy_extension(const std::string &ext)
 bool is_harddisk_extension(const std::string &ext)
 {
 	return "h0" == ext;
+}
+
+enum class ContentKind
+{
+	Unknown,
+	CD,
+	Floppy,
+	HardDisk
+};
+
+ContentKind classify_content_path(const std::string &path);
+bool is_small_bin_floppy(const std::string &path);
+void log(enum retro_log_level level, const char *message);
+void logf(enum retro_log_level level, const char *fmt, ...);
+
+struct MountedContentState
+{
+	bool haveFloppy = false;
+	bool haveCD = false;
+	bool haveHardDisk = false;
+	unsigned floppyCount = 0;
+};
+
+bool mount_content_path(TownsStartParameters &argv, const std::string &path, MountedContentState &state)
+{
+	const auto kind = classify_content_path(path);
+	switch(kind)
+	{
+	case ContentKind::Floppy:
+		if(state.floppyCount < TownsStartParameters::NUM_FDDRIVES)
+		{
+			argv.fdImgFName[state.floppyCount] = path;
+			state.haveFloppy = true;
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting floppy image=\"%s\"\n", argv.fdImgFName[state.floppyCount].c_str());
+			++state.floppyCount;
+			return true;
+		}
+		logf(RETRO_LOG_WARN, "Tsugaru libretro: no floppy slot available for \"%s\"\n", path.c_str());
+		return false;
+	case ContentKind::CD:
+		if(false == state.haveCD)
+		{
+			argv.cdImgFName = path;
+			argv.townsType = TOWNSTYPE_2_MX;
+			argv.memSizeInMB = 16;
+			argv.useFPU = true;
+			state.haveCD = true;
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting CD image=\"%s\"\n", argv.cdImgFName.c_str());
+			return true;
+		}
+		logf(RETRO_LOG_WARN, "Tsugaru libretro: additional CD entry ignored: \"%s\"\n", path.c_str());
+		return true;
+	case ContentKind::HardDisk:
+		if(false == state.haveHardDisk)
+		{
+			argv.scsiImg[0].imageType = TownsStartParameters::SCSIIMAGE_HARDDISK;
+			argv.scsiImg[0].imgFName = path;
+			state.haveHardDisk = true;
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting hard disk image=\"%s\"\n", argv.scsiImg[0].imgFName.c_str());
+			return true;
+		}
+		logf(RETRO_LOG_WARN, "Tsugaru libretro: additional hard disk entry ignored: \"%s\"\n", path.c_str());
+		return true;
+	case ContentKind::Unknown:
+	default:
+		logf(RETRO_LOG_WARN, "Tsugaru libretro: unsupported media entry ignored: \"%s\"\n", path.c_str());
+		return false;
+	}
+}
+
+std::string trim_copy(const std::string &value)
+{
+	const auto first = std::find_if_not(value.begin(), value.end(), [](unsigned char ch)
+	{
+		return std::isspace(ch) != 0;
+	});
+	const auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch)
+	{
+		return std::isspace(ch) != 0;
+	}).base();
+	if(first >= last)
+	{
+		return {};
+	}
+	return std::string(first, last);
+}
+
+std::vector<std::string> read_m3u_entries(const std::string &playlist)
+{
+	std::vector<std::string> entries;
+	std::ifstream file(playlist);
+	if(false == file.is_open())
+	{
+		return entries;
+	}
+
+	const auto base = std::filesystem::path(playlist).parent_path();
+	std::string line;
+	while(std::getline(file, line))
+	{
+		line = trim_copy(line);
+		if(line.empty() || '#' == line[0])
+		{
+			continue;
+		}
+
+		const auto comment = line.find('#');
+		if(std::string::npos != comment)
+		{
+			line = trim_copy(line.substr(0, comment));
+			if(line.empty())
+			{
+				continue;
+			}
+		}
+
+		if(line.find(':') != std::string::npos || (!line.empty() && ('\\' == line[0] || '/' == line[0])))
+		{
+			entries.push_back(line);
+		}
+		else
+		{
+			entries.push_back(base.empty() ? line : join_path(base.string(), line));
+		}
+	}
+
+	return entries;
+}
+
+ContentKind classify_content_path(const std::string &path)
+{
+	const auto ext = lower_extension(path);
+	if(true == is_small_bin_floppy(path) || true == is_floppy_extension(ext))
+	{
+		return ContentKind::Floppy;
+	}
+	if(true == is_cd_extension(ext))
+	{
+		return ContentKind::CD;
+	}
+	if(true == is_harddisk_extension(ext))
+	{
+		return ContentKind::HardDisk;
+	}
+	return ContentKind::Unknown;
+}
+
+const char *content_kind_label(ContentKind kind)
+{
+	switch(kind)
+	{
+	case ContentKind::CD:
+		return "cd";
+	case ContentKind::Floppy:
+		return "floppy";
+	case ContentKind::HardDisk:
+		return "harddisk";
+	case ContentKind::Unknown:
+	default:
+		return "unknown";
+	}
 }
 
 bool is_small_bin_floppy(const std::string &path)
@@ -1028,6 +1194,7 @@ public:
 	Outside_World::WindowInterface *window = nullptr;
 	Outside_World::Sound *sound = nullptr;
 	bool loaded = false;
+	unsigned int bootKeyComb = BOOT_KEYCOMB_NONE;
 	bool contentIsCD = false;
 	bool contentIsFD = false;
 
@@ -1095,45 +1262,54 @@ public:
 		argv.specialPath.push_back({"${save}", PreferredSavePath()});
 
 		const auto ext = lower_extension(content_path);
-		const bool smallBinFloppy = true == is_small_bin_floppy(content_path);
+		const auto kind = classify_content_path(content_path);
 		logf(RETRO_LOG_INFO, "Tsugaru libretro: content extension=\"%s\"\n", ext.c_str());
 		logf(RETRO_LOG_INFO, "Tsugaru libretro: content classification candidate=%s\n",
-			true == smallBinFloppy ? "floppy" : (true == is_cd_extension(ext) ? "cd" : (true == is_floppy_extension(ext) ? "floppy" : (true == is_harddisk_extension(ext) ? "harddisk" : "unknown"))));
-		if(true == smallBinFloppy)
+			true == is_m3u_extension(ext) ? "playlist" : content_kind_label(kind));
+
+		MountedContentState mounted;
+		if(true == is_m3u_extension(ext))
 		{
-			argv.fdImgFName[0] = content_path;
-			argv.bootKeyComb = BOOT_KEYCOMB_F0;
-			contentIsFD = true;
-			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting floppy image=\"%s\"\n", argv.fdImgFName[0].c_str());
+			const auto mediaPaths = read_m3u_entries(content_path);
+			if(mediaPaths.empty())
+			{
+				log(RETRO_LOG_ERROR, "Tsugaru libretro: M3U playlist is empty or unreadable.\n");
+				return false;
+			}
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: playlist entries=%zu\n", mediaPaths.size());
+			for(const auto &mediaPath : mediaPaths)
+			{
+				mount_content_path(argv, mediaPath, mounted);
+			}
 		}
-		else if(true == is_cd_extension(ext))
+		else
 		{
-			argv.cdImgFName = content_path;
-			argv.bootKeyComb = BOOT_KEYCOMB_CD;
-			argv.townsType = TOWNSTYPE_2_MX;
-			argv.memSizeInMB = 16;
-			argv.useFPU = true;
-			contentIsCD = true;
-			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting CD image=\"%s\"\n", argv.cdImgFName.c_str());
+			mount_content_path(argv, content_path, mounted);
 		}
-		else if(true == is_harddisk_extension(ext))
+
+		if(true == mounted.haveFloppy)
 		{
-			argv.scsiImg[0].imageType = TownsStartParameters::SCSIIMAGE_HARDDISK;
-			argv.scsiImg[0].imgFName = content_path;
-			argv.bootKeyComb = BOOT_KEYCOMB_H0;
-			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting hard disk image=\"%s\"\n", argv.scsiImg[0].imgFName.c_str());
+			bootKeyComb = BOOT_KEYCOMB_F0;
 		}
-		else if(true == is_floppy_extension(ext))
+		else if(true == mounted.haveCD)
 		{
-			argv.fdImgFName[0] = content_path;
-			argv.bootKeyComb = BOOT_KEYCOMB_F0;
-			contentIsFD = true;
-			logf(RETRO_LOG_INFO, "Tsugaru libretro: mounting floppy image=\"%s\"\n", argv.fdImgFName[0].c_str());
+			bootKeyComb = BOOT_KEYCOMB_CD;
+		}
+		else if(true == mounted.haveHardDisk)
+		{
+			bootKeyComb = BOOT_KEYCOMB_H0;
 		}
 		else
 		{
 			logf(RETRO_LOG_WARN, "Tsugaru libretro: no image mounted from content path\n");
 		}
+		if(true == is_m3u_extension(ext) && false == mounted.haveFloppy && false == mounted.haveCD && false == mounted.haveHardDisk)
+		{
+			log(RETRO_LOG_ERROR, "Tsugaru libretro: M3U playlist contained no supported media.\n");
+			return false;
+		}
+		argv.bootKeyComb = bootKeyComb;
+		logf(RETRO_LOG_INFO, "Tsugaru libretro: boot key combination=\"%s\"\n", TownsKeyCombToStr(bootKeyComb).c_str());
 
 		outside = std::make_unique<LibretroOutsideWorld>();
 		sound = outside->CreateSound();
@@ -1198,6 +1374,7 @@ public:
 		towns.reset();
 		outside.reset();
 		loaded = false;
+		bootKeyComb = BOOT_KEYCOMB_NONE;
 		contentIsCD = false;
 		contentIsFD = false;
 	}
@@ -1283,17 +1460,38 @@ public:
 		{
 			return;
 		}
-		if(true == contentIsCD)
+		switch(bootKeyComb)
 		{
+		case BOOT_KEYCOMB_CD:
 			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_TYPE)] = 8;
 			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_UNIT)] = 0;
 			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_BOOT_DEV)] = 0x80;
-		}
-		else if(true == contentIsFD)
+			break;
+		case BOOT_KEYCOMB_F0:
+		case BOOT_KEYCOMB_F1:
+		case BOOT_KEYCOMB_F2:
+		case BOOT_KEYCOMB_F3:
 		{
+			const unsigned unit = bootKeyComb - BOOT_KEYCOMB_F0;
 			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_TYPE)] = 2;
-			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_UNIT)] = 0;
-			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_BOOT_DEV)] = 0x20;
+			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_UNIT)] = unit;
+			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_BOOT_DEV)] = static_cast<unsigned char>(0x20 + unit);
+		}
+			break;
+		case BOOT_KEYCOMB_H0:
+		case BOOT_KEYCOMB_H1:
+		case BOOT_KEYCOMB_H2:
+		case BOOT_KEYCOMB_H3:
+		case BOOT_KEYCOMB_H4:
+		{
+			const unsigned unit = bootKeyComb - BOOT_KEYCOMB_H0;
+			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_TYPE)] = 1;
+			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_DEF_BOOT_DEV_UNIT)] = unit;
+			towns->physMem.state.CMOSRAM[cmos_index_from_io(TOWNSIO_CMOS_BOOT_DEV)] = static_cast<unsigned char>(0x10 + unit);
+		}
+			break;
+		default:
+			break;
 		}
 	}
 };
@@ -1437,7 +1635,7 @@ TSUGARU_RETRO_API void retro_get_system_info(retro_system_info *info)
 	std::memset(info, 0, sizeof(*info));
 	info->library_name = "Tsugaru";
 	info->library_version = "libretro phase3";
-	info->valid_extensions = "cue|bin|iso|mds|mdf|ccd|chd|d77|d88|rdd|img|fdi|h0";
+	info->valid_extensions = "cue|bin|iso|mds|mdf|ccd|chd|d77|d88|rdd|img|fdi|h0|m3u";
 	info->need_fullpath = true;
 	info->block_extract = true;
 }
