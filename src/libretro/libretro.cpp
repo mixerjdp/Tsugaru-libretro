@@ -1494,6 +1494,18 @@ public:
 		ResetMouseTracking();
 	}
 
+	void reset()
+	{
+		if(false == loaded || nullptr == towns || nullptr == townsThread || nullptr == outside || nullptr == uiThread)
+		{
+			return;
+		}
+
+		towns->Reset(bootKeyComb);
+		ResetMouseTracking();
+		frame_counter = 0;
+	}
+
 	bool CopyFrame(std::vector<uint32_t> &out,unsigned &wid,unsigned &hei)
 	{
 		if(nullptr != outside && nullptr != outside->window)
@@ -1838,10 +1850,7 @@ TSUGARU_RETRO_API void retro_deinit(void)
 
 TSUGARU_RETRO_API void retro_reset(void)
 {
-	runtime.unload();
-	retro_game_info game{};
-	game.path = content_path.empty() ? nullptr : content_path.c_str();
-	runtime.load(&game);
+	runtime.reset();
 	InvalidateSavestateSnapshot();
 }
 
