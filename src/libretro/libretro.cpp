@@ -50,6 +50,132 @@ std::string system_directory;
 std::string save_directory;
 uint64_t frame_counter = 0;
 
+unsigned int port0_type = TOWNS_GAMEPORTEMU_PHYSICAL0;
+unsigned int port1_type = TOWNS_GAMEPORTEMU_MOUSE;
+
+// Keyboard mapping: RetroArch key code to FM Towns JIS key code
+// Based on standalone keytrans.cpp mapping
+unsigned char RetroKeyToTownsKey(unsigned keycode)
+{
+	switch (keycode)
+	{
+		case RETROK_BACKSPACE: return TOWNS_JISKEY_BACKSPACE;
+		case RETROK_TAB: return TOWNS_JISKEY_TAB;
+		case RETROK_RETURN: return TOWNS_JISKEY_RETURN;
+		case RETROK_ESCAPE: return TOWNS_JISKEY_ESC;
+		case RETROK_SPACE: return TOWNS_JISKEY_SPACE;
+		
+		case RETROK_QUOTE: return TOWNS_JISKEY_7;
+		case RETROK_COMMA: return TOWNS_JISKEY_COMMA;
+		case RETROK_MINUS: return TOWNS_JISKEY_MINUS;
+		case RETROK_PERIOD: return TOWNS_JISKEY_DOT;
+		case RETROK_SLASH: return TOWNS_JISKEY_SLASH;
+		
+		case RETROK_0: return TOWNS_JISKEY_0;
+		case RETROK_1: return TOWNS_JISKEY_1;
+		case RETROK_2: return TOWNS_JISKEY_2;
+		case RETROK_3: return TOWNS_JISKEY_3;
+		case RETROK_4: return TOWNS_JISKEY_4;
+		case RETROK_5: return TOWNS_JISKEY_5;
+		case RETROK_6: return TOWNS_JISKEY_6;
+		case RETROK_7: return TOWNS_JISKEY_7;
+		case RETROK_8: return TOWNS_JISKEY_8;
+		case RETROK_9: return TOWNS_JISKEY_9;
+		
+		case RETROK_SEMICOLON: return TOWNS_JISKEY_SEMICOLON;
+		case RETROK_EQUALS: return TOWNS_JISKEY_MINUS;
+		
+		case RETROK_LEFTBRACKET: return TOWNS_JISKEY_LEFT_SQ_BRACKET;
+		case RETROK_BACKSLASH: return TOWNS_JISKEY_BACKSLASH;
+		case RETROK_RIGHTBRACKET: return TOWNS_JISKEY_RIGHT_SQ_BRACKET;
+		case RETROK_BACKQUOTE: return TOWNS_JISKEY_AT;
+		
+		case RETROK_a: return TOWNS_JISKEY_A;
+		case RETROK_b: return TOWNS_JISKEY_B;
+		case RETROK_c: return TOWNS_JISKEY_C;
+		case RETROK_d: return TOWNS_JISKEY_D;
+		case RETROK_e: return TOWNS_JISKEY_E;
+		case RETROK_f: return TOWNS_JISKEY_F;
+		case RETROK_g: return TOWNS_JISKEY_G;
+		case RETROK_h: return TOWNS_JISKEY_H;
+		case RETROK_i: return TOWNS_JISKEY_I;
+		case RETROK_j: return TOWNS_JISKEY_J;
+		case RETROK_k: return TOWNS_JISKEY_K;
+		case RETROK_l: return TOWNS_JISKEY_L;
+		case RETROK_m: return TOWNS_JISKEY_M;
+		case RETROK_n: return TOWNS_JISKEY_N;
+		case RETROK_o: return TOWNS_JISKEY_O;
+		case RETROK_p: return TOWNS_JISKEY_P;
+		case RETROK_q: return TOWNS_JISKEY_Q;
+		case RETROK_r: return TOWNS_JISKEY_R;
+		case RETROK_s: return TOWNS_JISKEY_S;
+		case RETROK_t: return TOWNS_JISKEY_T;
+		case RETROK_u: return TOWNS_JISKEY_U;
+		case RETROK_v: return TOWNS_JISKEY_V;
+		case RETROK_w: return TOWNS_JISKEY_W;
+		case RETROK_x: return TOWNS_JISKEY_X;
+		case RETROK_y: return TOWNS_JISKEY_Y;
+		case RETROK_z: return TOWNS_JISKEY_Z;
+		
+		case RETROK_DELETE: return TOWNS_JISKEY_DELETE;
+		
+		case RETROK_KP0: return TOWNS_JISKEY_NUM_0;
+		case RETROK_KP1: return TOWNS_JISKEY_NUM_1;
+		case RETROK_KP2: return TOWNS_JISKEY_NUM_2;
+		case RETROK_KP3: return TOWNS_JISKEY_NUM_3;
+		case RETROK_KP4: return TOWNS_JISKEY_NUM_4;
+		case RETROK_KP5: return TOWNS_JISKEY_NUM_5;
+		case RETROK_KP6: return TOWNS_JISKEY_NUM_6;
+		case RETROK_KP7: return TOWNS_JISKEY_NUM_7;
+		case RETROK_KP8: return TOWNS_JISKEY_NUM_8;
+		case RETROK_KP9: return TOWNS_JISKEY_NUM_9;
+		case RETROK_KP_PERIOD: return TOWNS_JISKEY_NUM_DOT;
+		case RETROK_KP_DIVIDE: return TOWNS_JISKEY_NUM_SLASH;
+		case RETROK_KP_MULTIPLY: return TOWNS_JISKEY_NUM_STAR;
+		case RETROK_KP_MINUS: return TOWNS_JISKEY_NUM_MINUS;
+		case RETROK_KP_PLUS: return TOWNS_JISKEY_NUM_PLUS;
+		case RETROK_KP_ENTER: return TOWNS_JISKEY_NUM_RETURN;
+		case RETROK_KP_EQUALS: return TOWNS_JISKEY_NUM_EQUAL;
+		
+		case RETROK_UP: return TOWNS_JISKEY_UP;
+		case RETROK_DOWN: return TOWNS_JISKEY_DOWN;
+		case RETROK_RIGHT: return TOWNS_JISKEY_RIGHT;
+		case RETROK_LEFT: return TOWNS_JISKEY_LEFT;
+		case RETROK_INSERT: return TOWNS_JISKEY_INSERT;
+		case RETROK_HOME: return TOWNS_JISKEY_HOME;
+		case RETROK_END: return TOWNS_JISKEY_EXECUTE;
+		case RETROK_PAGEUP: return TOWNS_JISKEY_PREV;
+		case RETROK_PAGEDOWN: return TOWNS_JISKEY_NEXT;
+		
+		case RETROK_F1: return TOWNS_JISKEY_PF01;
+		case RETROK_F2: return TOWNS_JISKEY_PF02;
+		case RETROK_F3: return TOWNS_JISKEY_PF03;
+		case RETROK_F4: return TOWNS_JISKEY_PF04;
+		case RETROK_F5: return TOWNS_JISKEY_PF05;
+		case RETROK_F6: return TOWNS_JISKEY_PF06;
+		case RETROK_F7: return TOWNS_JISKEY_PF07;
+		case RETROK_F8: return TOWNS_JISKEY_PF08;
+		case RETROK_F9: return TOWNS_JISKEY_PF09;
+		case RETROK_F10: return TOWNS_JISKEY_PF10;
+		case RETROK_F11: return TOWNS_JISKEY_PF11;
+		case RETROK_F12: return TOWNS_JISKEY_PF12;
+		
+		case RETROK_CAPSLOCK: return TOWNS_JISKEY_CAPS;
+		case RETROK_SCROLLOCK: return TOWNS_JISKEY_COPY;
+		case RETROK_RSHIFT: return TOWNS_JISKEY_SHIFT;
+		case RETROK_LSHIFT: return TOWNS_JISKEY_SHIFT;
+		case RETROK_RCTRL: return TOWNS_JISKEY_CTRL;
+		case RETROK_LCTRL: return TOWNS_JISKEY_CTRL;
+		case RETROK_RALT: return TOWNS_JISKEY_ALT;
+		case RETROK_LALT: return TOWNS_JISKEY_ALT;
+		case RETROK_PAUSE: return TOWNS_JISKEY_BREAK;
+		
+		default: return TOWNS_JISKEY_NULL;
+	}
+}
+
+void retro_keyboard_event(bool down, unsigned keycode, uint32_t character, uint16_t key_modifiers);
+
 struct CachedInput
 {
 	bool up = false;
@@ -100,6 +226,295 @@ std::string lower_extension(const std::string &path)
 		ext.erase(ext.begin());
 	}
 	return ext;
+}
+
+unsigned int StringToGamePortEmu(const std::string& str)
+{
+	if (str == "gamepad") return TOWNS_GAMEPORTEMU_PHYSICAL0;
+	if (str == "physical0") return TOWNS_GAMEPORTEMU_PHYSICAL0;
+	if (str == "physical1") return TOWNS_GAMEPORTEMU_PHYSICAL1;
+	if (str == "mouse") return TOWNS_GAMEPORTEMU_MOUSE;
+	if (str == "cyberstick") return TOWNS_GAMEPORTEMU_CYBERSTICK;
+	if (str == "physical0_as_cyberstick") return TOWNS_GAMEPORTEMU_PHYSICAL0_AS_CYBERSTICK;
+	if (str == "physical1_as_cyberstick") return TOWNS_GAMEPORTEMU_PHYSICAL1_AS_CYBERSTICK;
+	if (str == "6button") return TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL0;
+	if (str == "6btn") return TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL0;
+	if (str == "capcom") return TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL0;
+	if (str == "libblerabble") return TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG0;
+	if (str == "libble-rabble") return TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG0;
+	if (str == "martypad") return TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL0;
+	if (str == "marty") return TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL0;
+	if (str == "none") return TOWNS_GAMEPORTEMU_NONE;
+	return TOWNS_GAMEPORTEMU_PHYSICAL0;
+}
+
+bool IsCyberStickPortType(unsigned int portType)
+{
+	switch(portType)
+	{
+	case TOWNS_GAMEPORTEMU_PHYSICAL0_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL1_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL2_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL3_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL4_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL5_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL6_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_PHYSICAL7_AS_CYBERSTICK:
+	case TOWNS_GAMEPORTEMU_CYBERSTICK:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool IsLibbleRabblePortType(unsigned int portType)
+{
+	switch(portType)
+	{
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG0:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG1:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG2:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG3:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG4:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG5:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG6:
+	case TOWNS_GAMEPORTEMU_LIBBLE_RABBLE_PAD_BY_ANALOG7:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool IsCapcomPortType(unsigned int portType)
+{
+	switch(portType)
+	{
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL0:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL1:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL2:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL3:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL4:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL5:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL6:
+	case TOWNS_GAMEPORTEMU_CAPCOM_BY_PHYSICAL7:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool IsSixButtonPortType(unsigned int portType)
+{
+	switch(portType)
+	{
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL0:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL1:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL2:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL3:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL4:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL5:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL6:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_PHYSICAL7:
+	case TOWNS_GAMEPORTEMU_6BTNPAD_BY_KEY:
+		return true;
+	default:
+		return false;
+	}
+}
+
+bool IsMartyPadPortType(unsigned int portType)
+{
+	switch(portType)
+	{
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL0:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL1:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL2:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL3:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL4:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL5:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL6:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_PHYSICAL7:
+	case TOWNS_GAMEPORTEMU_MARTYPAD_BY_KEY:
+		return true;
+	default:
+		return false;
+	}
+}
+
+void AddDescriptor(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port,
+	unsigned device,
+	unsigned index,
+	unsigned id,
+	const char *label)
+{
+	labels.emplace_back(label);
+	descriptors.push_back({port, device, index, id, labels.back().c_str()});
+}
+
+void AppendStandardPadDescriptors(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port)
+{
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Button A");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Button B");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start (Run)");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select (Pause)");
+}
+
+void AppendCapcomDescriptors(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port)
+{
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Button A");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Button B");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Button X");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Button Y");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Button L");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Button R");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start (Run)");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select (Pause)");
+}
+
+void AppendSixButtonDescriptors(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port)
+{
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Button A");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Button B");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Button C");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Button X");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Button Y");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Button Z");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start (Run)");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select (Pause)");
+}
+
+void AppendLibbleRabbleDescriptors(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port)
+{
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "D-Pad Down");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Button A");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Button B");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Left 2");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Right 2");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Up 2");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Down 2");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Start (Run)");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select (Pause)");
+}
+
+void AppendCyberStickDescriptors(std::vector<retro_input_descriptor> &descriptors,
+	std::vector<std::string> &labels,
+	unsigned port)
+{
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Stick X");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, "Stick Y");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X, "Throttle X");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y, "Throttle Y");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Trigger 1");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Trigger 2");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Trigger 3");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Trigger 4");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Trigger 5");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Trigger 6");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Trigger 7");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Trigger 8");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Trigger 9");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Trigger 10");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3, "Trigger 11");
+	AddDescriptor(descriptors, labels, port, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Trigger 12");
+}
+
+void RefreshInputDescriptors()
+{
+	if(nullptr == environ_cb)
+	{
+		return;
+	}
+
+	static std::vector<retro_input_descriptor> descriptors;
+	static std::vector<std::string> labels;
+	descriptors.clear();
+	labels.clear();
+	descriptors.reserve(64);
+	labels.reserve(64);
+
+	if(false == (TOWNS_GAMEPORTEMU_NONE == port0_type || TOWNS_GAMEPORTEMU_MOUSE == port0_type))
+	{
+		if(true == IsCyberStickPortType(port0_type))
+		{
+			AppendCyberStickDescriptors(descriptors, labels, 0);
+		}
+		else if(true == IsLibbleRabblePortType(port0_type))
+		{
+			AppendLibbleRabbleDescriptors(descriptors, labels, 0);
+		}
+		else if(true == IsCapcomPortType(port0_type))
+		{
+			AppendCapcomDescriptors(descriptors, labels, 0);
+		}
+		else if(true == IsSixButtonPortType(port0_type))
+		{
+			AppendSixButtonDescriptors(descriptors, labels, 0);
+		}
+		else if(true == IsMartyPadPortType(port0_type))
+		{
+			AppendStandardPadDescriptors(descriptors, labels, 0);
+		}
+		else
+		{
+			AppendStandardPadDescriptors(descriptors, labels, 0);
+		}
+	}
+
+	if(false == (TOWNS_GAMEPORTEMU_NONE == port1_type || TOWNS_GAMEPORTEMU_MOUSE == port1_type))
+	{
+		if(true == IsCyberStickPortType(port1_type))
+		{
+			AppendCyberStickDescriptors(descriptors, labels, 1);
+		}
+		else if(true == IsLibbleRabblePortType(port1_type))
+		{
+			AppendLibbleRabbleDescriptors(descriptors, labels, 1);
+		}
+		else if(true == IsCapcomPortType(port1_type))
+		{
+			AppendCapcomDescriptors(descriptors, labels, 1);
+		}
+		else if(true == IsSixButtonPortType(port1_type))
+		{
+			AppendSixButtonDescriptors(descriptors, labels, 1);
+		}
+		else if(true == IsMartyPadPortType(port1_type))
+		{
+			AppendStandardPadDescriptors(descriptors, labels, 1);
+		}
+		else
+		{
+			AppendStandardPadDescriptors(descriptors, labels, 1);
+		}
+	}
+
+	descriptors.push_back({0, 0, 0, 0, nullptr});
+	environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, descriptors.data());
 }
 
 bool is_cd_extension(const std::string &ext)
@@ -194,34 +609,15 @@ void set_environment_defaults()
 
 	bool supportNoGame = true;
 	environ_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &supportNoGame);
-
-	static const retro_input_descriptor input_descriptors[] =
-	{
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "D-Pad Left" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "D-Pad Right" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,    "D-Pad Up" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,  "D-Pad Down" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A,      "Button A" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,      "Button B" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START,  "Start (Run)" },
-		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Select" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,   "D-Pad Left" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT,  "D-Pad Right" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP,     "D-Pad Up" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN,   "D-Pad Down" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A,       "Button A" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B,       "Button B" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START,   "Start (Run)" },
-		{ 1, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT,  "Select" },
-		{ 0, 0, 0, 0, nullptr },
-	};
-	environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, const_cast<retro_input_descriptor *>(input_descriptors));
+	RefreshInputDescriptors();
 
 	static const retro_variable variables[] =
 	{
 		{ "tsugaru_model", "FM Towns Model; auto|MODEL2|2F|20F|UX|HR|MX|MARTY" },
 		{ "tsugaru_ram_mb", "RAM Size; 6|4|8|10|12|16" },
 		{ "tsugaru_mouse_mode", "Mouse Mode; relative|integrated" },
+		{ "tsugaru_port0_type", "Port 0 Device; gamepad|mouse|cyberstick|libblerabble|martypad|6button|capcom|none" },
+		{ "tsugaru_port1_type", "Port 1 Device; mouse|gamepad|cyberstick|libblerabble|martypad|6button|capcom|none" },
 		{ nullptr, nullptr },
 	};
 	environ_cb(RETRO_ENVIRONMENT_SET_VARIABLES, const_cast<retro_variable *>(variables));
@@ -409,12 +805,141 @@ public:
 	void Stop(void) override {}
 	void DevicePolling(FMTownsCommon &towns) override
 	{
-		CachedInput input;
+		if (!input_poll_cb || !input_state_cb) return;
+		input_poll_cb();
+
+		auto read_button = [&](unsigned port, unsigned id) -> bool
 		{
-			std::lock_guard<std::mutex> lock(input_lock);
-			input = cached_input;
+			return 0 != input_state_cb(port, RETRO_DEVICE_JOYPAD, 0, id);
+		};
+		auto read_axis = [&](unsigned port, unsigned index, unsigned id) -> int
+		{
+			return static_cast<int>(input_state_cb(port, RETRO_DEVICE_ANALOG, index, id));
+		};
+		auto read_axis_with_fallback = [&](unsigned port, unsigned index, unsigned id, unsigned negative_button, unsigned positive_button) -> int
+		{
+			const int analog = read_axis(port, index, id);
+			if(0 != analog)
+			{
+				return analog / 256;
+			}
+			if(true == read_button(port, positive_button))
+			{
+				return 127;
+			}
+			if(true == read_button(port, negative_button))
+			{
+				return -128;
+			}
+			return 0;
+		};
+		
+		for (unsigned port = 0; port < 2; ++port)
+		{
+			unsigned int portType = (port == 0) ? port0_type : port1_type;
+			
+			if (portType == TOWNS_GAMEPORTEMU_NONE || portType == TOWNS_GAMEPORTEMU_MOUSE)
+				continue;
+
+			if(true == IsCyberStickPortType(portType))
+			{
+				const bool left = read_button(port, RETRO_DEVICE_ID_JOYPAD_LEFT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) < 0;
+				const bool right = read_button(port, RETRO_DEVICE_ID_JOYPAD_RIGHT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) > 0;
+				const bool up = read_button(port, RETRO_DEVICE_ID_JOYPAD_UP) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) < 0;
+				const bool down = read_button(port, RETRO_DEVICE_ID_JOYPAD_DOWN) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) > 0;
+				unsigned int trig = 0;
+				auto setTrig = [&](unsigned bit, unsigned id)
+				{
+					if(true == read_button(port, id))
+					{
+						trig |= (1u << bit);
+					}
+				};
+
+				const int x = read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT);
+				const int y = read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN);
+				const int z = read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) / 256;
+				const int w = read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) / 256;
+
+				setTrig(11, RETRO_DEVICE_ID_JOYPAD_A);
+				setTrig(10, RETRO_DEVICE_ID_JOYPAD_B);
+				setTrig(5, RETRO_DEVICE_ID_JOYPAD_X);
+				setTrig(4, RETRO_DEVICE_ID_JOYPAD_Y);
+				setTrig(9, RETRO_DEVICE_ID_JOYPAD_L);
+				setTrig(8, RETRO_DEVICE_ID_JOYPAD_R);
+				setTrig(7, RETRO_DEVICE_ID_JOYPAD_L2);
+				setTrig(6, RETRO_DEVICE_ID_JOYPAD_R2);
+				setTrig(0, RETRO_DEVICE_ID_JOYPAD_SELECT);
+				setTrig(1, RETRO_DEVICE_ID_JOYPAD_START);
+				setTrig(2, RETRO_DEVICE_ID_JOYPAD_L3);
+				setTrig(3, RETRO_DEVICE_ID_JOYPAD_R3);
+
+				towns.SetCyberStickState(port, x, y, z, w, trig);
+			}
+			else if(true == IsLibbleRabblePortType(portType))
+			{
+				const bool left = read_button(port, RETRO_DEVICE_ID_JOYPAD_LEFT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) < 0;
+				const bool right = read_button(port, RETRO_DEVICE_ID_JOYPAD_RIGHT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) > 0;
+				const bool up = read_button(port, RETRO_DEVICE_ID_JOYPAD_UP) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) < 0;
+				const bool down = read_button(port, RETRO_DEVICE_ID_JOYPAD_DOWN) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) > 0;
+				const bool a = read_button(port, RETRO_DEVICE_ID_JOYPAD_A);
+				const bool b = read_button(port, RETRO_DEVICE_ID_JOYPAD_B);
+				const bool run = read_button(port, RETRO_DEVICE_ID_JOYPAD_START);
+				const bool pause = read_button(port, RETRO_DEVICE_ID_JOYPAD_SELECT);
+				const bool left2 = read_button(port, RETRO_DEVICE_ID_JOYPAD_X) || read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) < -32;
+				const bool right2 = read_button(port, RETRO_DEVICE_ID_JOYPAD_Y) || read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X) > 32;
+				const bool up2 = read_button(port, RETRO_DEVICE_ID_JOYPAD_L) || read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) < -32;
+				const bool down2 = read_button(port, RETRO_DEVICE_ID_JOYPAD_R) || read_axis(port, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_Y) > 32;
+
+				towns.SetLibbleRabblePadState(
+					a,
+					b,
+					left,
+					right,
+					up,
+					down,
+					left2,
+					right2,
+					up2,
+					down2,
+					run,
+					pause,
+					towns.state.townsTime
+				);
+			}
+			else if(true == IsCapcomPortType(portType) || true == IsSixButtonPortType(portType))
+			{
+				const bool left = read_button(port, RETRO_DEVICE_ID_JOYPAD_LEFT);
+				const bool right = read_button(port, RETRO_DEVICE_ID_JOYPAD_RIGHT);
+				const bool up = read_button(port, RETRO_DEVICE_ID_JOYPAD_UP);
+				const bool down = read_button(port, RETRO_DEVICE_ID_JOYPAD_DOWN);
+				const bool a = read_button(port, RETRO_DEVICE_ID_JOYPAD_A);
+				const bool b = read_button(port, RETRO_DEVICE_ID_JOYPAD_B);
+				const bool x = read_button(port, RETRO_DEVICE_ID_JOYPAD_X);
+				const bool y = read_button(port, RETRO_DEVICE_ID_JOYPAD_Y);
+				const bool l = read_button(port, RETRO_DEVICE_ID_JOYPAD_L);
+				const bool r = read_button(port, RETRO_DEVICE_ID_JOYPAD_R);
+				const bool run = read_button(port, RETRO_DEVICE_ID_JOYPAD_START);
+				const bool pause = read_button(port, RETRO_DEVICE_ID_JOYPAD_SELECT);
+
+				towns.gameport.state.ports[port].SetCAPCOMCPSFState(
+					left, right, up, down, a, b, x, y, l, r, run, pause,
+					towns.state.townsTime
+				);
+			}
+			else
+			{
+				const bool left = read_button(port, RETRO_DEVICE_ID_JOYPAD_LEFT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) < 0;
+				const bool right = read_button(port, RETRO_DEVICE_ID_JOYPAD_RIGHT) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT) > 0;
+				const bool up = read_button(port, RETRO_DEVICE_ID_JOYPAD_UP) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) < 0;
+				const bool down = read_button(port, RETRO_DEVICE_ID_JOYPAD_DOWN) || read_axis_with_fallback(port, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y, RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN) > 0;
+				const bool a = read_button(port, RETRO_DEVICE_ID_JOYPAD_A);
+				const bool b = read_button(port, RETRO_DEVICE_ID_JOYPAD_B);
+				const bool run = read_button(port, RETRO_DEVICE_ID_JOYPAD_START);
+				const bool pause = read_button(port, RETRO_DEVICE_ID_JOYPAD_SELECT);
+				towns.SetGamePadState(port, a, b, left, right, up, down, run, pause, false);
+			}
 		}
-		towns.SetGamePadState(0, input.a, input.b, input.left, input.right, input.up, input.down, input.run, input.pause, false);
 	}
 	bool ImageNeedsFlip(void) override
 	{
@@ -512,8 +1037,37 @@ public:
 		argv.townsType = TOWNSTYPE_1F_2F;
 		argv.memSizeInMB = 6;
 		argv.keyboardMode = TOWNS_KEYBOARD_MODE_DIRECT;
-		argv.gamePort[0] = TOWNS_GAMEPORTEMU_PHYSICAL0;
-		argv.gamePort[1] = TOWNS_GAMEPORTEMU_MOUSE;
+		
+		// Read port type options
+		retro_variable var;
+		var.key = "tsugaru_port0_type";
+		if (environ_cb && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+		{
+			port0_type = StringToGamePortEmu(var.value);
+			argv.gamePort[0] = port0_type;
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: Port 0 type=\"%s\" (%u)\n", var.value, port0_type);
+		}
+		else
+		{
+			port0_type = TOWNS_GAMEPORTEMU_PHYSICAL0;
+			argv.gamePort[0] = port0_type;
+		}
+		
+		var.key = "tsugaru_port1_type";
+		if (environ_cb && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
+		{
+			port1_type = StringToGamePortEmu(var.value);
+			argv.gamePort[1] = port1_type;
+			logf(RETRO_LOG_INFO, "Tsugaru libretro: Port 1 type=\"%s\" (%u)\n", var.value, port1_type);
+		}
+		else
+		{
+			port1_type = TOWNS_GAMEPORTEMU_MOUSE;
+			argv.gamePort[1] = port1_type;
+		}
+
+		RefreshInputDescriptors();
+		
 		argv.specialPath.push_back({"${system}", system_directory});
 		argv.specialPath.push_back({"${save}", PreferredSavePath()});
 
@@ -702,6 +1256,23 @@ public:
 
 Runtime runtime;
 
+void retro_keyboard_event(bool down, unsigned keycode, uint32_t, uint16_t)
+{
+	const unsigned char townsKey = RetroKeyToTownsKey(keycode);
+	if(TOWNS_JISKEY_NULL == townsKey)
+	{
+		return;
+	}
+	if(nullptr != runtime.towns && true == runtime.loaded)
+	{
+		unsigned char keyCodeBuf[2];
+		keyCodeBuf[0] = TOWNS_KEYFLAG_TYPE_JIS | TOWNS_KEYFLAG_TYPE_FIRSTBYTE;
+		keyCodeBuf[0] |= down ? TOWNS_KEYFLAG_PRESS : TOWNS_KEYFLAG_RELEASE;
+		keyCodeBuf[1] = townsKey;
+		runtime.towns->keyboard.TypeToFifo(keyCodeBuf);
+	}
+}
+
 void draw_placeholder_frame()
 {
 	const uint32_t background = runtime.loaded ? 0x00182010u : (content_path.empty() ? 0x00101820u : 0x00102018u);
@@ -758,24 +1329,7 @@ void push_audio()
 
 void poll_input()
 {
-	if(nullptr != input_poll_cb)
-	{
-		input_poll_cb();
-	}
-	if(nullptr != input_state_cb)
-	{
-		CachedInput next;
-		next.up = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP);
-		next.down = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN);
-		next.left = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT);
-		next.right = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT);
-		next.a = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A);
-		next.b = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B);
-		next.run = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START);
-		next.pause = 0 != input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT);
-		std::lock_guard<std::mutex> lock(input_lock);
-		cached_input = next;
-	}
+	// Input polling is now done directly in DevicePolling
 }
 }
 
@@ -864,6 +1418,15 @@ TSUGARU_RETRO_API void retro_get_system_av_info(retro_system_av_info *info)
 TSUGARU_RETRO_API void retro_init(void)
 {
 	frame_counter = 0;
+	
+	// Register keyboard callback
+	if (environ_cb)
+	{
+		retro_keyboard_callback kb_callback;
+		kb_callback.callback = retro_keyboard_event;
+		environ_cb(RETRO_ENVIRONMENT_SET_KEYBOARD_CALLBACK, &kb_callback);
+	}
+	
 	log(RETRO_LOG_INFO, "Tsugaru libretro phase 3 initialized.\n");
 }
 
