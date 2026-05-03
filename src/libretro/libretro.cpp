@@ -24,23 +24,11 @@
 #define TSUGARU_RETRO_API extern "C" __attribute__((visibility("default")))
 #endif
 
-#ifndef RETRO_DEVICE_POINTER
-#define RETRO_DEVICE_POINTER 6
-#endif
 #ifndef RETRO_DEVICE_ID_MOUSE_X
 #define RETRO_DEVICE_ID_MOUSE_X 0
 #endif
 #ifndef RETRO_DEVICE_ID_MOUSE_Y
 #define RETRO_DEVICE_ID_MOUSE_Y 1
-#endif
-#ifndef RETRO_DEVICE_ID_POINTER_X
-#define RETRO_DEVICE_ID_POINTER_X 0
-#endif
-#ifndef RETRO_DEVICE_ID_POINTER_Y
-#define RETRO_DEVICE_ID_POINTER_Y 1
-#endif
-#ifndef RETRO_DEVICE_ID_POINTER_PRESSED
-#define RETRO_DEVICE_ID_POINTER_PRESSED 2
 #endif
 #ifndef RETRO_DEVICE_ID_MOUSE_LEFT
 #define RETRO_DEVICE_ID_MOUSE_LEFT 2
@@ -81,9 +69,6 @@ size_t savestate_snapshot_size = 0;
 uint64_t savestate_snapshot_frame = ~0ULL;
 bool savestate_snapshot_valid = false;
 bool mouse_mode_integrated = false;
-std::array<int, 2> mouse_pointer_prev_x{};
-std::array<int, 2> mouse_pointer_prev_y{};
-std::array<bool, 2> mouse_pointer_prev_valid{};
 
 unsigned int port0_type = TOWNS_GAMEPORTEMU_PHYSICAL0;
 unsigned int port1_type = TOWNS_GAMEPORTEMU_MOUSE;
@@ -1085,17 +1070,9 @@ public:
 		{
 			return static_cast<int>(input_state_cb(port, RETRO_DEVICE_MOUSE, 0, id));
 		};
-		auto read_pointer_axis = [&](unsigned port, unsigned id) -> int
-		{
-			return static_cast<int>(input_state_cb(port, RETRO_DEVICE_POINTER, 0, id));
-		};
 		auto read_mouse_button = [&](unsigned port, unsigned id) -> bool
 		{
 			return 0 != input_state_cb(port, RETRO_DEVICE_MOUSE, 0, id);
-		};
-		auto read_pointer_pressed = [&](unsigned port) -> bool
-		{
-			return 0 != input_state_cb(port, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_PRESSED);
 		};
 		auto read_axis_with_fallback = [&](unsigned port, unsigned index, unsigned id, unsigned negative_button, unsigned positive_button) -> int
 		{
@@ -1142,44 +1119,71 @@ public:
 				break;
 			}
 		}
-		if(mousePort < 2)
+		struct MouseSample
 		{
-			const int mouseDx = read_mouse_axis(mousePort, RETRO_DEVICE_ID_MOUSE_X);
-			const int mouseDy = read_mouse_axis(mousePort, RETRO_DEVICE_ID_MOUSE_Y);
-			const int pointerX = read_pointer_axis(mousePort, RETRO_DEVICE_ID_POINTER_X);
-			const int pointerY = read_pointer_axis(mousePort, RETRO_DEVICE_ID_POINTER_Y);
-			const bool pointerPressed = read_pointer_pressed(mousePort);
-			bool leftButton = read_mouse_button(mousePort, RETRO_DEVICE_ID_MOUSE_LEFT);
-			bool rightButton = read_mouse_button(mousePort, RETRO_DEVICE_ID_MOUSE_RIGHT);
+			int dx = 0;
+			int dy = 0;
+			bool left = false;
+			bool right = false;
+			bool active = false;
+		};
+		std::array<MouseSample, 2> mouseSamples{};
+		for(unsigned port = 0; port < 2; ++port)
+		{
+			mouseSamples[port].dx = read_mouse_axis(port, RETRO_DEVICE_ID_MOUSE_X);
+			mouseSamples[port].dy = read_mouse_axis(port, RETRO_DEVICE_ID_MOUSE_Y);
+			mouseSamples[port].left = read_mouse_button(port, RETRO_DEVICE_ID_MOUSE_LEFT);
+			mouseSamples[port].right = read_mouse_button(port, RETRO_DEVICE_ID_MOUSE_RIGHT);
+			mouseSamples[port].active = (0 != mouseSamples[port].dx ||
+			                             0 != mouseSamples[port].dy ||
+			                             true == mouseSamples[port].left ||
+			                             true == mouseSamples[port].right);
+		}
 
-			if(true == mouse_mode_integrated &&
-			   (0 != pointerX || 0 != pointerY || true == pointerPressed || true == mouse_pointer_prev_valid[mousePort]))
+		int mouseSource = -1;
+		if(mousePort < 2 && true == mouseSamples[mousePort].active)
+		{
+			mouseSource = static_cast<int>(mousePort);
+		}
+		else
+		{
+			for(unsigned port = 0; port < 2; ++port)
 			{
-				if(false == mouse_pointer_prev_valid[mousePort])
+				if(true == mouseSamples[port].active)
 				{
-					mouse_pointer_prev_x[mousePort] = pointerX;
-					mouse_pointer_prev_y[mousePort] = pointerY;
-					mouse_pointer_prev_valid[mousePort] = true;
+					mouseSource = static_cast<int>(port);
+					break;
 				}
-				const int dx = pointerX - mouse_pointer_prev_x[mousePort];
-				const int dy = pointerY - mouse_pointer_prev_y[mousePort];
-				mouse_pointer_prev_x[mousePort] = pointerX;
-				mouse_pointer_prev_y[mousePort] = pointerY;
-				leftButton = leftButton || pointerPressed;
+			}
+		}
+
+		if(0 <= mouseSource)
+		{
+			const auto &mouse = mouseSamples[mouseSource];
+			bool leftButton = mouse.left;
+			bool rightButton = mouse.right;
+
+			if(true == mouse_mode_integrated)
+			{
 				towns.SetMouseButtonState(leftButton, rightButton);
-				if(0 != dx || 0 != dy)
+				if(0 != mouse.dx || 0 != mouse.dy)
 				{
-					towns.ControlMouseByDiffDirect(dx, dy);
+					towns.ControlMouseByDiff(mouse.dx, mouse.dy, towns.state.tbiosVersion);
 				}
 			}
 			else
 			{
 				towns.SetMouseButtonState(leftButton, rightButton);
-				if(0 != mouseDx || 0 != mouseDy)
+				if(0 != mouse.dx || 0 != mouse.dy)
 				{
-					towns.ControlMouseByDiffDirect(mouseDx, mouseDy);
+					towns.ControlMouseByDiffDirect(mouse.dx, mouse.dy);
 				}
 			}
+		}
+		else
+		{
+			towns.SetMouseButtonState(false, false);
+			towns.DontControlMouse();
 		}
 		
 		for (unsigned port = 0; port < 2; ++port)
@@ -1857,9 +1861,6 @@ void poll_input()
 
 void ResetMouseTracking()
 {
-	mouse_pointer_prev_x = {0, 0};
-	mouse_pointer_prev_y = {0, 0};
-	mouse_pointer_prev_valid = {false, false};
 }
 
 void InvalidateSavestateSnapshot()
