@@ -10,14 +10,14 @@ The goal of this fork is to provide a fast, stable, and easy-to-install FM Towns
 - CD media support, including `CHD`.
 - Support for floppy and disk images by extension.
 - RetroArch `.info` metadata file.
-- 32-bit and 64-bit build scripts.
+- 32-bit, 64-bit, and Linux build scripts.
 - No BIOS redistribution in the release.
 
 ## What is included
 
 - The libretro core binaries.
 - The `.info` file for RetroArch.
-- Build scripts for Win32 and Win64.
+- Build scripts for Win32, Win64, and Linux.
 
 ## What is not included
 
@@ -53,6 +53,10 @@ RetroArch/cores/
 ### 32-bit
 
 If you use a 32-bit RetroArch installation, copy the Win32 build of the same core into that installation's `cores` directory.
+
+### Linux
+
+If you use RetroArch on Linux, copy the Linux build of the core (`tsugaru_libretro.so`) into your RetroArch `cores` directory.
 
 ## Install the `.info` file
 
@@ -119,16 +123,19 @@ Build scripts are provided for both architectures:
 ```bat
 buildlibretro32.bat
 buildlibretro64.bat
+buildlinux.bat
 ```
 
 The 64-bit script copies the resulting DLL into the RetroArch `cores` directory.
+The Linux script builds the core on the Linux VM over SSH and copies the resulting `.so` into `libretro-build/linux64/`.
 
-## Release v1.00
+## Release v1.01
 
-The `v1.00` release publishes only these files:
+The `v1.01` release publishes these files:
 
 - `tsugaru_libretro_32bit.dll`
 - `tsugaru_libretro_64bit.dll`
+- `tsugaru_libretro.so`
 - `tsugaru_libretro.info`
 
 No BIOS files are included in the release.
@@ -137,4 +144,3 @@ No BIOS files are included in the release.
 
 - CaptainYS and the Tsugaru contributors.
 - The libretro community for the documentation and the wider core ecosystem.
-
