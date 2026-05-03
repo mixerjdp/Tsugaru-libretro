@@ -249,6 +249,47 @@ std::string join_path(const std::string &base,const std::string &leaf)
 	return (std::filesystem::path(base) / leaf).string();
 }
 
+std::string preferred_cmos_save_path(const std::string &saveBase,const std::string &contentPath)
+{
+	const auto contentStem = std::filesystem::path(contentPath).stem().string();
+	if(contentStem.empty())
+	{
+		return join_path(saveBase, "tsugaru_cmos.bin");
+	}
+	return join_path(saveBase, contentStem + ".cmos.bin");
+}
+
+std::string find_content_cmos_seed(const std::string &contentPath)
+{
+	if(contentPath.empty())
+	{
+		return {};
+	}
+
+	const auto contentDir = std::filesystem::path(contentPath).parent_path();
+	if(contentDir.empty() || false == std::filesystem::is_directory(contentDir))
+	{
+		return {};
+	}
+
+	static const char *candidateNames[] =
+	{
+		"cmos.dat",
+		"CMOS.DAT",
+		"cmos.bin",
+		"CMOS.BIN",
+	};
+	for(const auto *candidateName : candidateNames)
+	{
+		const auto candidate = contentDir / candidateName;
+		if(std::filesystem::exists(candidate))
+		{
+			return candidate.string();
+		}
+	}
+	return {};
+}
+
 std::string lower_extension(const std::string &path)
 {
 	auto ext = std::filesystem::path(path).extension().string();
@@ -1341,7 +1382,7 @@ public:
 		contentIsCD = false;
 		contentIsFD = false;
 		argv.ROMPath = PreferredRomPath();
-		argv.CMOSFName = join_path(PreferredSavePath(), "tsugaru_cmos.bin");
+		argv.CMOSFName = preferred_cmos_save_path(PreferredSavePath(), content_path);
 		argv.autoSaveCMOS = true;
 		argv.autoStart = true;
 		argv.noWait = true;
@@ -1396,6 +1437,7 @@ public:
 		
 		argv.specialPath.push_back({"${system}", system_directory});
 		argv.specialPath.push_back({"${save}", PreferredSavePath()});
+		logf(RETRO_LOG_INFO, "Tsugaru libretro: CMOS save path=\"%s\"\n", argv.CMOSFName.c_str());
 
 		const auto ext = lower_extension(content_path);
 		const auto kind = classify_content_path(content_path);
@@ -1444,6 +1486,31 @@ public:
 			log(RETRO_LOG_ERROR, "Tsugaru libretro: M3U playlist contained no supported media.\n");
 			return false;
 		}
+		bool seededCMOS = false;
+		std::vector<unsigned char> contentCMOSBinary;
+		const auto cmosSeed = find_content_cmos_seed(content_path);
+		if(false == cmosSeed.empty())
+		{
+			const auto cmosBinary = cpputil::ReadBinaryFile(cmosSeed);
+			if(TOWNS_CMOS_SIZE == cmosBinary.size())
+			{
+				contentCMOSBinary = cmosBinary;
+				seededCMOS = true;
+				bootKeyComb = BOOT_KEYCOMB_NONE;
+				logf(RETRO_LOG_INFO, "Tsugaru libretro: seeded CMOS from \"%s\"\n", cmosSeed.c_str());
+				if(true == std::filesystem::exists(argv.CMOSFName))
+				{
+					logf(RETRO_LOG_INFO, "Tsugaru libretro: content CMOS overrides persistent save \"%s\"\n",
+					     argv.CMOSFName.c_str());
+				}
+				log(RETRO_LOG_INFO, "Tsugaru libretro: neutralizing boot key combination because content CMOS seed is valid.\n");
+			}
+			else if(false == cmosBinary.empty())
+			{
+				logf(RETRO_LOG_WARN, "Tsugaru libretro: ignored CMOS seed \"%s\" because it has %zu bytes\n",
+				     cmosSeed.c_str(), cmosBinary.size());
+			}
+		}
 		argv.bootKeyComb = bootKeyComb;
 		logf(RETRO_LOG_INFO, "Tsugaru libretro: boot key combination=\"%s\"\n", TownsKeyCombToStr(bootKeyComb).c_str());
 
@@ -1462,7 +1529,24 @@ public:
 			log(RETRO_LOG_ERROR, "Tsugaru libretro: failed to set up FM Towns VM.\n");
 			return false;
 		}
-		ConfigureBootDevice();
+
+		if(true == seededCMOS)
+		{
+			towns->physMem.SetCMOS(contentCMOSBinary);
+		}
+
+		if(false == seededCMOS)
+		{
+			ConfigureBootDevice();
+		}
+		else
+		{
+			bootKeyComb = BOOT_KEYCOMB_NONE;
+			argv.bootKeyComb = BOOT_KEYCOMB_NONE;
+			towns->keyboard.SetBootKeyCombination(BOOT_KEYCOMB_NONE);
+			towns->gameport.SetBootKeyCombination(BOOT_KEYCOMB_NONE);
+			log(RETRO_LOG_INFO, "Tsugaru libretro: preserving boot device from content CMOS seed.\n");
+		}
 
 		townsThread = std::make_unique<TownsThread>();
 		townsThread->SetRunMode(TownsThread::RUNMODE_RUN);
