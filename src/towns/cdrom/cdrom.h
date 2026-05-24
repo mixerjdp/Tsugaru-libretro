@@ -306,6 +306,12 @@ public:
 		bool debugMonitorCommandWrite=false;
 		bool debugBreakOnDEI=false;
 		bool debugBreakOnDataReady=false;
+		bool debugTraceFirstMode1Read=false;
+		unsigned int debugTraceFirstMode1ReadLimit=0;
+		bool debugTraceFirstMode1ReadActive=false;
+		bool debugTraceFirstMode1ReadArmed=false;
+		unsigned int debugTraceFirstMode1ReadRemaining=0;
+		bool debugMonitorRead4C0=false;
 
 		unsigned int sectorReadTimeDelay=0;
 
@@ -361,6 +367,7 @@ public:
 	}
 private:
 	void UpdateCDDAStateInternal(long long int townsTime);
+	void DebugLogStatus(const char reason[]) const;
 public:
 	inline bool CDDAIsPlaying(void) const
 	{

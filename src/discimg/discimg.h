@@ -19,6 +19,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <memory>
 
 // MDS/MDF implementation is based on:
 //   https://problemkaputt.de/psx-spx.htm#cdromdiskimagesmdsmdfalcohol120
@@ -26,6 +27,9 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 class DiscImage
 {
+public:
+	struct ChdState;
+
 public:
 	enum
 	{
@@ -302,6 +306,8 @@ public:
 	std::vector <Track> tracks;
 	std::vector <DiscLayout> layout;
 	std::vector <unsigned char> binaryCache;
+	std::string temporaryImageDir;
+	bool preserveTemporaryImageDir=false;
 
 	class TrackTime
 	{
@@ -311,16 +317,22 @@ public:
 	};
 
 	DiscImage();
+	~DiscImage();
 	static const char *ErrorCodeToText(unsigned int errCode);
 	void CleanUp(void);
 	unsigned int Open(const std::string &fName);
 	unsigned int OpenCUE(const std::string &fName);
 private:
+	unsigned int OpenCHD(const std::string &fName);
+	unsigned int OpenCHDLibChdr(const std::string &fName);
+	bool ReadCHDRawSector(uint64_t rawSectorIndex,unsigned char *sector) const;
 	unsigned int OpenCUEPostProcess(void);
 	void MakeLayoutFromTracksAndBinaryFiles(void);
 	bool TryAnalyzeTracksWithProbablyCorrectInterpretation(void);
 	bool TryAnalyzeTracksWithAbsurdCUEInterpretation(void);
 	bool TryAnalyzeTracksWithMoreReasonableCUEInterpretation(void);
+	void RemoveTemporaryImage(void);
+	std::unique_ptr<ChdState> chdState;
 
 public:
 	unsigned int OpenISO(const std::string &fName);
@@ -397,7 +409,6 @@ public:
 	static unsigned int BCDToBin(unsigned int bin);
 	inline static MinSecFrm MakeMSF(unsigned int min,unsigned int sec,unsigned int frm);
 };
-
 inline DiscImage::MinSecFrm operator+(DiscImage::MinSecFrm l,DiscImage::MinSecFrm r)
 {
 	l+=r;

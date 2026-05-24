@@ -148,7 +148,7 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "-FD0UP,-FD1UP" << std::endl;
 	std::cout << "  Write un-protect floppy disk." << std::endl;
 	std::cout << "-CD image-file-name" << std::endl;
-	std::cout << "  CD-ROM image file name for the internal drive. ISO or CUE." << std::endl;
+	std::cout << "  CD-ROM image file name for the internal drive. ISO, CUE, or CHD." << std::endl;
 	std::cout << "-CDPATH path" << std::endl;
 	std::cout << "  CD-ROM Image Search Path." << std::endl;
 	std::cout << "  Repeat -CDPATH path1 -CDPATH path2 ... to specify multipl paths." << std::endl;
@@ -233,7 +233,7 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "-HD0 image-file-name" << std::endl;
 	std::cout << "  Hard-disk image file name.  Can be -HDx (0<=x<=6)" << std::endl;
 	std::cout << "-SCSICD0 image-file-name" << std::endl;
-	std::cout << "  SCSI CD-ROM image file name.  Can be -SCSICDx (0<=x<=6)" << std::endl;
+	std::cout << "  SCSI CD-ROM image file name. ISO, CUE, or CHD. Can be -SCSICDx (0<=x<=6)" << std::endl;
 	std::cout << "-SYM filename" << std::endl;
 	std::cout << "  Specify symbol file name." << std::endl;
 	std::cout << "-EVTLOG filename" << std::endl;
@@ -372,6 +372,8 @@ void TownsARGV::PrintApplicationList(void) const
 	std::cout << "  Mouse integration." << std::endl;
 	std::cout << "ULTIMAUNDERWORLD" << std::endl;
 	std::cout << "  Mouse integration." << std::endl;
+	std::cout << "QODGAIDEN" << std::endl;
+	std::cout << "  Queen of Duellist Gaiden / Gaiden Alpha CD-ROM timing compatibility." << std::endl;
 }
 
 void TownsARGV::CopyFile(std::string src,std::string dst)

@@ -518,6 +518,8 @@ public:
 	// Will be removed when the class is stable.
 	FMTownsCommon();
 
+	virtual unsigned int RunOneInstruction(void)=0;
+
 
 	virtual void Abort(std::string devName,std::string abortReason) override
 	{
@@ -997,7 +999,7 @@ public:
 	}
 
 	/*! Run one instruction and returns the number of clocks passed. */
-	inline unsigned int RunOneInstruction(void)
+	inline unsigned int RunOneInstruction(void) override final
 	{
 		auto clocksPassed=_cpu.RunOneInstruction(mem,io);
 		state.clockBalance+=clocksPassed*1000;

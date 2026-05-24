@@ -1,2 +1,5 @@
 build*
+!buildlibretro32.bat
+!buildlibretro64.bat
+!buildlinux.bat
 nobackup

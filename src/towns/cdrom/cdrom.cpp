@@ -14,6 +14,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 << LICENSE */
 #include <iostream>
 #include <math.h>
+#include <algorithm>
+#include <cstdlib>
 #include "discimg.h"
 #include "cdrom.h"
 #include "townsdef.h"
@@ -160,10 +162,57 @@ TownsCDROM::TownsCDROM(class FMTownsCommon *townsPtr,class TownsPIC *PICPtr,clas
 	this->PICPtr=PICPtr;
 	this->DMACPtr=DMACPtr;
 	state.Reset();
+	if(const char *envTrace=std::getenv("TSUGARU_CDROM_FIRST_MODE1READ_TRACE"))
+	{
+		var.debugTraceFirstMode1Read=(0!=std::atoi(envTrace));
+	}
+	if(const char *envLimit=std::getenv("TSUGARU_CDROM_FIRST_MODE1READ_TRACE_LIMIT"))
+	{
+		var.debugTraceFirstMode1ReadLimit=static_cast<unsigned int>(std::max(0, std::atoi(envLimit)));
+		var.debugTraceFirstMode1Read=(0<var.debugTraceFirstMode1ReadLimit);
+	}
+	if(true==var.debugTraceFirstMode1Read && 0==var.debugTraceFirstMode1ReadLimit)
+	{
+		var.debugTraceFirstMode1ReadLimit=128;
+	}
+	if(const char *envCmdTrace=std::getenv("TSUGARU_CDROM_CMDTRACE"))
+	{
+		if(0!=std::atoi(envCmdTrace))
+		{
+			var.debugMonitorCommandWrite=true;
+		}
+	}
+	if(const char *envRead4C0=std::getenv("TSUGARU_CDROM_TRACE_READ4C0"))
+	{
+		var.debugMonitorRead4C0=(0!=std::atoi(envRead4C0));
+	}
 }
 TownsCDROM::~TownsCDROM()
 {
 	WaitUntilAsyncWaveReaderFinished();
+}
+void TownsCDROM::DebugLogStatus(const char reason[]) const
+{
+	if(true!=var.debugMonitorCommandWrite)
+	{
+		return;
+	}
+	std::cout << "[CDROM] " << reason
+	          << " cmd=" << cpputil::Ubtox(state.cmd)
+	          << " SIRQ=" << (state.SIRQ ? 1 : 0)
+	          << " enSIRQ=" << (state.enableSIRQ ? 1 : 0)
+	          << " DEI=" << (state.DEI ? 1 : 0)
+	          << " enDEI=" << (state.enableDEI ? 1 : 0)
+	          << " STSF=" << (state.STSF ? 1 : 0)
+	          << " DTSF=" << (state.DTSF ? 1 : 0)
+	          << " DRY=" << (state.DRY ? 1 : 0)
+	          << " Q=" << state.statusQueue.size()
+	          << " [";
+	for(auto b : state.statusQueue)
+	{
+		std::cout << cpputil::Ubtox(b) << " ";
+	}
+	std::cout << "]" << std::endl;
 }
 void TownsCDROM::WaitUntilAsyncWaveReaderFinished(void)
 {
@@ -177,10 +226,16 @@ void TownsCDROM::WaitUntilAsyncWaveReaderFinished(void)
 /* virtual */ void TownsCDROM::PowerOn(void)
 {
 	state.Reset();
+	var.debugTraceFirstMode1ReadActive=false;
+	var.debugTraceFirstMode1ReadArmed=false;
+	var.debugTraceFirstMode1ReadRemaining=0;
 }
 /* virtual */ void TownsCDROM::Reset(void)
 {
 	state.Reset();
+	var.debugTraceFirstMode1ReadActive=false;
+	var.debugTraceFirstMode1ReadArmed=false;
+	var.debugTraceFirstMode1ReadRemaining=0;
 }
 
 bool TownsCDROM::CanOpenCloseFromCommand(void) const
@@ -317,6 +372,17 @@ bool TownsCDROM::CanOpenCloseFromCommand(void) const
 		{
 			data&=0xFE; // Virtually keep ready signal low.
 		}
+		if(true==var.debugMonitorRead4C0)
+		{
+			std::cout << "[CDROM] READ 4C0 -> " << cpputil::Ubtox(data)
+			          << " SIRQ=" << (state.SIRQ ? 1 : 0)
+			          << " DEI=" << (state.DEI ? 1 : 0)
+			          << " STSF=" << (state.STSF ? 1 : 0)
+			          << " DTSF=" << (state.DTSF ? 1 : 0)
+			          << " DRY=" << (state.DRY ? 1 : 0)
+			          << " Q=" << state.statusQueue.size()
+			          << std::endl;
+		}
 		return data;
 	case TOWNSIO_CDROM_COMMAND_STATUS://    0x4C2, // [2] pp.224
 		if(0<state.statusQueue.size())
@@ -328,9 +394,25 @@ bool TownsCDROM::CanOpenCloseFromCommand(void) const
 			}
 			state.statusQueue.pop_back();
 
+			if(true==var.debugMonitorCommandWrite)
+			{
+				std::cout << "[CDROM] READ 4C2 -> " << cpputil::Ubtox(data)
+				          << " remaining=" << state.statusQueue.size()
+				          << " cmd=" << cpputil::Ubtox(state.cmd)
+				          << std::endl;
+			}
+
 			if(0==(state.statusQueue.size()&3) && CMDFLAG_IRQ&state.cmd)
 			{
-				SetSIRQ_IRR();
+				const bool gaidenStatusQueueBoundaryQuirk=
+					(TOWNS_APPSPECIFIC_QODGAIDEN==townsPtr->state.appSpecificSetting) &&
+					(CDCMD_MODE1READ==(state.cmd&0x9F) ||
+					 CDCMD_MODE2READ==(state.cmd&0x9F) ||
+					 CDCMD_RAWREAD==(state.cmd&0x9F));
+				if(false==gaidenStatusQueueBoundaryQuirk)
+				{
+					SetSIRQ_IRR();
+				}
 			}
 
 			return data;
@@ -626,7 +708,14 @@ void TownsCDROM::BreakOnCommandCheck(const char phase[])
 			{
 				townsPtr->debugger.ExternalBreak(msg);
 			}
-			std::cout << "CDROM Command " << cpputil::Ubtox(state.cmd) << " |";
+			std::cout << "CDROM Command " << cpputil::Ubtox(state.cmd)
+			          << " SIRQ=" << (state.SIRQ ? 1 : 0)
+			          << " DEI=" << (state.DEI ? 1 : 0)
+			          << " STSF=" << (state.STSF ? 1 : 0)
+			          << " DTSF=" << (state.DTSF ? 1 : 0)
+			          << " DRY=" << (state.DRY ? 1 : 0)
+			          << " Q=" << state.statusQueue.size()
+			          << " |";
 			for(int i=0; i<8; ++i)
 			{
 				std::cout << cpputil::Ubtox(state.paramQueue[i]) << " ";
@@ -665,6 +754,14 @@ void TownsCDROM::PrepareCDDAPlay(void)
 	msfEnd.frm=DiscImage::BCDToBin(state.paramQueue[5]);
 	msfEnd-=offset;
 
+	if(true==var.debugMonitorCommandWrite)
+	{
+		std::cout << "[CDROM] PrepareCDDAPlay begin="
+		          << (int)msfBegin.min << ":" << (int)msfBegin.sec << ":" << (int)msfBegin.frm
+		          << " end="
+		          << (int)msfEnd.min << ":" << (int)msfEnd.sec << ":" << (int)msfEnd.frm
+		          << std::endl;
+	}
 	waveReader.Start(&state.GetDisc(),msfBegin,msfEnd);
 }
 
@@ -731,6 +828,20 @@ void TownsCDROM::DelayedCommandExecution(unsigned long long int townsTime)
 			msfEnd.frm=DiscImage::BCDToBin(state.paramQueue[5]);
 
 			BeginReadSector(msfBegin,msfEnd);
+			if(true==var.debugTraceFirstMode1Read && false==var.debugTraceFirstMode1ReadArmed && 0x62==state.cmd)
+			{
+				var.debugTraceFirstMode1ReadArmed=true;
+				var.debugTraceFirstMode1ReadActive=true;
+				var.debugTraceFirstMode1ReadRemaining=var.debugTraceFirstMode1ReadLimit;
+				std::cout << "[CDROM] First MODE1READ trace armed"
+				          << " cmd=" << cpputil::Ubtox(state.cmd)
+				          << " begin=" << (int)msfBegin.min << ":" << (int)msfBegin.sec << ":" << (int)msfBegin.frm
+				          << " end=" << (int)msfEnd.min << ":" << (int)msfEnd.sec << ":" << (int)msfEnd.frm
+				          << " adjustedBegin=" << state.readingSectorHSG
+				          << " adjustedEnd=" << state.endSectorHSG
+				          << " limit=" << var.debugTraceFirstMode1ReadLimit
+				          << std::endl;
+			}
 		}
 		break;
 	case CDCMD_CDDAPLAY://   0x04,
@@ -1075,6 +1186,15 @@ void TownsCDROM::DelayedCommandExecution(unsigned long long int townsTime)
 
 void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSecFrm msfEnd)
 {
+	if(true==var.debugMonitorCommandWrite || true==var.debugTraceFirstMode1ReadActive || 0x62==state.cmd)
+	{
+		std::cout << "[CDROM] BeginReadSector begin="
+		          << (int)msfBegin.min << ":" << (int)msfBegin.sec << ":" << (int)msfBegin.frm
+		          << " end="
+		          << (int)msfEnd.min << ":" << (int)msfEnd.sec << ":" << (int)msfEnd.frm
+		          << " headHSG=" << state.headPositionHSG
+		          << std::endl;
+	}
 	state.readingSectorHSG=msfBegin.ToHSG();
 	state.endSectorHSG=msfEnd.ToHSG();
 	if(state.readingSectorHSG>state.endSectorHSG || state.readingSectorHSG<150) // 150frames=two seconds
@@ -1087,6 +1207,14 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 	{
 		state.readingSectorHSG-=150;
 		state.endSectorHSG-=150;
+		if(true==var.debugMonitorCommandWrite || true==var.debugTraceFirstMode1ReadActive || 0x62==state.cmd)
+		{
+			std::cout << "[CDROM] BeginReadSector adjusted"
+			          << " beginHSG=" << state.readingSectorHSG
+			          << " endHSG=" << state.endSectorHSG
+			          << " cmd=" << cpputil::Ubtox(state.cmd)
+			          << std::endl;
+		}
 
 		uint64_t distance;
 		if(state.readingSectorHSG<state.headPositionHSG)
@@ -1216,13 +1344,38 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 					// if it is what it does, I need to emulate lost data.
 
 					// Means DMA was not set up in time.
+					if(true==var.debugTraceFirstMode1Read && true==var.debugTraceFirstMode1ReadActive)
+					{
+						auto discMSF=DiscImage::HSGtoMSF(state.readingSectorHSG);
+						auto trackIndex=state.GetDisc().GetTrackFromMSF(discMSF);
+						std::cout << "[CDROM] MODE1 timeout"
+						          << " cmd=" << cpputil::Ubtox(state.cmd)
+						          << " hsg=" << state.readingSectorHSG
+						          << " track=" << (0<=trackIndex ? trackIndex+1 : 0)
+						          << " dmaAvailable=" << (DMAAvailable ? 1 : 0)
+						          << " dmatransfer=" << (state.DMATransfer ? 1 : 0)
+						          << " dtsf=" << (state.DTSF ? 1 : 0)
+						          << " wait=" << (state.WaitForDTSSTS ? 1 : 0)
+						          << " dei=" << (state.DEI ? 1 : 0)
+						          << " sirq=" << (state.SIRQ ? 1 : 0)
+						          << std::endl;
+						var.debugTraceFirstMode1ReadActive=false;
+					}
 					state.ClearStatusQueue();
 					state.PushStatusQueue(0x21,0x0F,0,0); // Abnormal termination.  I don't know which error to return.
 					state.SIRQ=false;
-					if(true==StatusRequestBit(state.cmd) && 0!=(state.cmd&CMDFLAG_IRQ) && true==state.enableSIRQ)
+					if(true==StatusRequestBit(state.cmd))
 					{
-						PICPtr->SetInterruptRequestBit(TOWNSIRQ_CDROM,true);
+						bool raisePic=(0!=(state.cmd&CMDFLAG_IRQ));
+						if(CDCMD_MODE1READ==(state.cmd&0x9F) || CDCMD_MODE2READ==(state.cmd&0x9F) || CDCMD_RAWREAD==(state.cmd&0x9F))
+						{
+							raisePic=true;
+						}
 						state.SIRQ=true;
+						if(true==raisePic && true==state.enableSIRQ)
+						{
+							PICPtr->SetInterruptRequestBit(TOWNSIRQ_CDROM,true);
+						}
 					}
 					state.DRY=true;
 					state.DEI=false;
@@ -1284,6 +1437,22 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 					}
 
 					// See above comment about Shadow of the Beast for why not checking STATUS REQUEST bit for setting status.
+					if(true==var.debugTraceFirstMode1Read && true==var.debugTraceFirstMode1ReadActive)
+					{
+						auto discMSF=DiscImage::HSGtoMSF(state.readingSectorHSG);
+						auto trackIndex=state.GetDisc().GetTrackFromMSF(discMSF);
+						std::cout << "[CDROM] MODE1 waiting for DMA"
+						          << " cmd=" << cpputil::Ubtox(state.cmd)
+						          << " hsg=" << state.readingSectorHSG
+						          << " track=" << (0<=trackIndex ? trackIndex+1 : 0)
+						          << " dmaAvailable=" << (DMAAvailable ? 1 : 0)
+						          << " dmatransfer=" << (state.DMATransfer ? 1 : 0)
+						          << " dtsf=" << (state.DTSF ? 1 : 0)
+						          << " wait=" << (state.WaitForDTSSTS ? 1 : 0)
+						          << " dei=" << (state.DEI ? 1 : 0)
+						          << " sirq=" << (state.SIRQ ? 1 : 0)
+						          << std::endl;
+					}
 					SetStatusDataReady();
 
 					if(true==StatusRequestBit(state.cmd) && 0!=(state.cmd&CMDFLAG_IRQ) && true==state.enableSIRQ)
@@ -1311,6 +1480,27 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 					std::vector <unsigned char> data;
 					if(CDCMD_MODE1READ==(state.cmd&0x9F))
 					{
+						if(true==var.debugTraceFirstMode1Read && true==var.debugTraceFirstMode1ReadActive && 0<var.debugTraceFirstMode1ReadRemaining)
+						{
+							auto discMSF=DiscImage::HSGtoMSF(state.readingSectorHSG);
+							auto trackIndex=state.GetDisc().GetTrackFromMSF(discMSF);
+							std::cout << "[CDROM] MODE1 sector"
+							          << " cmd=" << cpputil::Ubtox(state.cmd)
+							          << " hsg=" << state.readingSectorHSG
+							          << " track=" << (0<=trackIndex ? trackIndex+1 : 0)
+							          << " dmaAvailable=" << (DMAAvailable ? 1 : 0)
+							          << " dmatransfer=" << (state.DMATransfer ? 1 : 0)
+							          << " dtsf=" << (state.DTSF ? 1 : 0)
+							          << " wait=" << (state.WaitForDTSSTS ? 1 : 0)
+							          << " dei=" << (state.DEI ? 1 : 0)
+							          << " sirq=" << (state.SIRQ ? 1 : 0)
+							          << std::endl;
+							--var.debugTraceFirstMode1ReadRemaining;
+							if(0==var.debugTraceFirstMode1ReadRemaining)
+							{
+								std::cout << "[CDROM] First MODE1READ trace limit reached" << std::endl;
+							}
+						}
 						data=state.GetDisc().ReadSectorMODE1(state.readingSectorHSG,1);
 					}
 					else if(CDCMD_MODE2READ==(state.cmd&0x9F))
@@ -1328,6 +1518,14 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 					DMACPtr->DeviceToMemory(DMACh,data);
 					DMACPtr->SetDMATransferEnd(TOWNSDMA_CDROM);
 					++state.readingSectorHSG;
+					if(true==var.debugTraceFirstMode1Read && true==var.debugTraceFirstMode1ReadActive)
+					{
+						std::cout << "[CDROM] MODE1 sector done"
+						          << " nextHSG=" << state.readingSectorHSG
+						          << " endHSG=" << state.endSectorHSG
+						          << " dataBytes=" << data.size()
+						          << std::endl;
+					}
 					townsPtr->ScheduleDeviceCallBack(*this,townsPtr->state.townsTime+NOTIFICATION_TIME);
 					state.DMATransfer=false;
 					state.DTSF=false;  // Should I turn it off also? -> Looks like I should.  Based on 2MX SYSROM FC00:00001CF7.  It waits for DTSF to clear.
@@ -1347,6 +1545,15 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 			}
 			else
 			{
+				if(true==var.debugTraceFirstMode1Read && true==var.debugTraceFirstMode1ReadActive)
+				{
+					std::cout << "[CDROM] MODE1 transfer completed"
+					          << " nextHSG=" << state.readingSectorHSG
+					          << " endHSG=" << state.endSectorHSG
+					          << " cmd=" << cpputil::Ubtox(state.cmd)
+					          << std::endl;
+					var.debugTraceFirstMode1ReadActive=false;
+				}
 				state.DRY=true;
 				state.ClearStatusQueue();
 				state.DTSF=false;
@@ -1357,7 +1564,16 @@ void TownsCDROM::BeginReadSector(DiscImage::MinSecFrm msfBegin,DiscImage::MinSec
 				if(true==StatusRequestBit(state.cmd))
 				{
 					state.SIRQ=true;
-					if(0!=(state.cmd&CMDFLAG_IRQ) && true==state.enableSIRQ)
+					bool raisePic=(0!=(state.cmd&CMDFLAG_IRQ));
+					// Some titles appear to rely on the CD-ROM controller interrupt after read completion
+					// even when the command byte only carries the status-request bit.
+					// Keep the status queue semantics unchanged, but let read-complete wake the PIC more
+					// liberally so games that poll too little do not stall after the first burst.
+					if(CDCMD_MODE1READ==(state.cmd&0x9F) || CDCMD_MODE2READ==(state.cmd&0x9F) || CDCMD_RAWREAD==(state.cmd&0x9F))
+					{
+						raisePic=true;
+					}
+					if(true==raisePic && true==state.enableSIRQ)
 					{
 						PICPtr->SetInterruptRequestBit(TOWNSIRQ_CDROM,true);
 					}
@@ -1380,18 +1596,21 @@ void TownsCDROM::SetStatusDriveNotReadyOrDiscChangedOrNoError(void)
 	{
 		SetStatusNoError();
 	}
+	DebugLogStatus("SetStatusDriveNotReadyOrDiscChangedOrNoError");
 }
 bool TownsCDROM::SetStatusDriveNotReadyOrDiscChanged(void)
 {
 	if(true!=DiscLoadedAndLidClosed())
 	{
 		SetStatusDriveNotReady();
+		DebugLogStatus("SetStatusDriveNotReady");
 		return true;
 	}
 	else if(true==state.discChanged)
 	{
 		SetStatusDiscChanged();
 		state.discChanged=false;
+		DebugLogStatus("SetStatusDiscChanged");
 		return true;
 	}
 	return false;
@@ -1399,31 +1618,38 @@ bool TownsCDROM::SetStatusDriveNotReadyOrDiscChanged(void)
 void TownsCDROM::SetStatusNoError(void)
 {
 	state.PushStatusQueue(0,StatusSecondByte(),0,0);
+	DebugLogStatus("SetStatusNoError");
 }
 void TownsCDROM::SetStatusDriveNotReady(void)
 {
 	// BIOS Disassembly suggests Drive-Not-Ready is 00 09 xx xx.  V2.1 L20 0421:277C
 	state.PushStatusQueue(0,9,0,0);
+	DebugLogStatus("SetStatusDriveNotReady");
 }
 void TownsCDROM::SetStatusDiscChanged(void)
 {
 	state.PushStatusQueue(0x21,8,0,0);
+	DebugLogStatus("SetStatusDiscChanged");
 }
 void TownsCDROM::SetStatusReadDone(void)
 {
 	state.PushStatusQueue(0x06,0,0,0);
+	DebugLogStatus("SetStatusReadDone");
 }
 void TownsCDROM::SetStatusHardError(void)
 {
 	state.PushStatusQueue(0x21,04,0,0);
+	DebugLogStatus("SetStatusHardError");
 }
 void TownsCDROM::SetStatusParameterError(void)
 {
 	state.PushStatusQueue(0x21,01,0,0);
+	DebugLogStatus("SetStatusParameterError");
 }
 void TownsCDROM::SetStatusDataReady(void)
 {
 	state.PushStatusQueue(0x22,0,0,0);
+	DebugLogStatus("SetStatusDataReady");
 }
 void TownsCDROM::SetStatusQueueForTOC(void)
 {
@@ -1477,6 +1703,7 @@ void TownsCDROM::SetStatusQueueForTOC(void)
 
 		++trkNum;
 	}
+	DebugLogStatus("SetStatusQueueForTOC");
 }
 
 void TownsCDROM::SetStatusSubQRead(void)
@@ -1540,6 +1767,7 @@ void TownsCDROM::SetStatusSubQRead(void)
 		DiscImage::BinToBCD(discTime.frm),
 		0,
 		0);
+	DebugLogStatus("SetStatusSubQRead");
 }
 
 void TownsCDROM::PushStatusCDDAStopDone(void)
@@ -1612,6 +1840,7 @@ void TownsCDROM::SetSIRQ_IRR(void)
 			PICPtr->SetInterruptRequestBit(TOWNSIRQ_CDROM,true);
 		}
 	}
+	DebugLogStatus("SetSIRQ_IRR");
 }
 
 /* virtual */ uint32_t TownsCDROM::SerializeVersion(void) const
