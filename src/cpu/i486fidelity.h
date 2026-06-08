@@ -115,6 +115,10 @@ public:
 	inline static void AdjustNewCSDPLonINT(i486DXCommon::SegmentRegister &newCS,uint16_t newCSDescType,uint16_t CPL){};
 
 	inline static bool CheckJumpToHigherPrivilege(i486DXCommon::SegmentRegister &newCS,SavedCSEIP &prevCSEIP){return false;}
+
+	inline static void MarkTaskRegisterBusy(i486DXCommon &,Memory &,uint16_t,bool){}
+
+	inline static bool CheckNestedTask(i486DXCommon &){return false;}
 };
 
 class i486DXDefaultFidelityOperation : public i486DXLowFidelityOperation
@@ -961,6 +965,16 @@ public:
 	inline static bool CheckJumpToHigherPrivilege(i486DXCommon::SegmentRegister &newCS,SavedCSEIP &prevCSEIP)
 	{
 		return newCS.DPL<prevCSEIP.CS.DPL;
+	}
+
+	inline static void MarkTaskRegisterBusy(i486DXFidelityLayer<THISCLASS> &cpu,Memory &mem,uint16_t selector,bool busy)
+	{
+		cpu.MarkTaskRegisterBusy(mem,selector,busy);
+	}
+
+	inline static bool CheckNestedTask(i486DXCommon &cpu)
+	{
+		return 0!=(cpu.state.EFLAGS&i486DXCommon::EFLAGS_NESTED) && 0==(cpu.state.EFLAGS&i486DXCommon::EFLAGS_VIRTUAL86);
 	}
 };
 

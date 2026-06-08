@@ -832,9 +832,9 @@ void FsGuiMainCanvas::Run(void)
 }
 
 template <class VMClass>
-void FsGuiMainCanvas::ReallyRunWithinSameProcess(VMClass &VM)
+void FsGuiMainCanvas::ReallyRunWithinSameProcess(VMClass &VM,const TownsProfile &profileIn)
 {
-	VM.profile=profileDlg->GetProfile();
+	VM.profile=profileIn;
 	if(""==VM.profile.CMOSFName)
 	{
 		VM.profile.CMOSFName=GetCMOSFileName();
@@ -863,7 +863,33 @@ bool FsGuiMainCanvas::ReallyRun(bool usePipe)
 		return false;
 	}
 
-	auto missing=CheckMissingROMFiles();
+	auto profile=profileDlg->GetProfile();
+
+	std::vector <std::string> missing;
+	if(""!=profile.ROMPath)
+	{
+		missing=CheckMissingROMFiles(profile);
+	}
+	else
+	{
+		profile.ROMPath="${progdir}";
+		missing=CheckMissingROMFiles(profile);
+		if(0<missing.size())
+		{
+			profile.ROMPath="${profiledir}";
+			missing=CheckMissingROMFiles(profile);
+			if(0<missing.size())
+			{
+				char *cwd=getcwd(NULL,0);
+				if(NULL!=cwd)
+				{
+					profile.ROMPath=cwd;
+					missing=CheckMissingROMFiles(profile);
+					free(cwd);
+				}
+			}
+		}
+	}
 	if(0<missing.size())
 	{
 		std::string msg;
@@ -880,7 +906,6 @@ bool FsGuiMainCanvas::ReallyRun(bool usePipe)
 	}
 
 
-	auto profile=profileDlg->GetProfile();
 	separateProcess=profile.separateProcess; // This is the only chance to change this flag.
 
 	{
@@ -939,11 +964,11 @@ bool FsGuiMainCanvas::ReallyRun(bool usePipe)
 	{
 		if(i486DXCommon::HIGH_FIDELITY==profile.CPUFidelityLevel)
 		{
-			ReallyRunWithinSameProcess(VMHighFidelity);
+			ReallyRunWithinSameProcess(VMHighFidelity,profile);
 		}
 		else
 		{
-			ReallyRunWithinSameProcess(VMDefaultFidelity);
+			ReallyRunWithinSameProcess(VMDefaultFidelity,profile);
 		}
 	}
 
@@ -1157,7 +1182,7 @@ YsVec2i FsGuiMainCanvas::GetGUIDimension(void) const
 	return dim;
 }
 
-std::vector <std::string> FsGuiMainCanvas::CheckMissingROMFiles(void) const
+std::vector <std::string> FsGuiMainCanvas::CheckMissingROMFiles(const TownsProfile &profile) const
 {
 	auto specialPath=MakeSpecialPathTable();
 
@@ -1170,7 +1195,7 @@ std::vector <std::string> FsGuiMainCanvas::CheckMissingROMFiles(void) const
 		"FMT_FNT.ROM",
 		"FMT_SYS.ROM",
 	};
-	std::string path=profileDlg->ROMDirTxt->GetString().c_str();
+	std::string path=profile.ROMPath;
 	for(auto file : ROMFName)
 	{
 		std::string ful=cpputil::MakeFullPathName(path,file);

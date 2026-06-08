@@ -88,8 +88,37 @@ inline void i486DXFidelityLayer <FIDELITY>::Interrupt(unsigned int INTNum,Memory
 				isINTGate=false;
 				break;
 			case DESCTYPE_TASK_GATE: // 0b0101: //"386 32-bit Task";
-				Abort("INT to 386 32-bit Task gate not supported");
-				return; // If abort, must return.  The trailing lines may cause seg fault. (Happened while booting OSASK for TOWNS)
+				{
+					std::cout << "INT to Task Gate  From=" << cpputil::Ustox(state.TR.value) << " To=" << cpputil::Ustox(desc.SEG) << "\n";
+
+					auto prevEFLAGS=state.EFLAGS;
+					state.CS().DPL=0; // Make it CPL0, and
+					state.EFLAGS&=~(EFLAGS_VIRTUAL86|EFLAGS_TRAP|EFLAGS_NESTED); // clear VM86 flag so that state can be saved and loaded.
+					state.mode=state.RecalculateMode();
+
+					auto prevTR=state.TR.value;
+					auto nextTR=desc.SEG;
+					SegmentRegister newTSS;
+					auto prevCPL=state.CS().DPL;
+					state.CS().DPL=0;
+					LoadSegmentRegister(newTSS,nextTR,mem);
+					state.CS().DPL=prevCPL;
+
+					SaveStateToTSS(mem,numInstBytesForReturn,prevEFLAGS,state.CS().value);
+
+					// The current task stays busy.  Only new task needs to be marked busy.  Done in SwitchTaskToTSS.
+
+					SwitchTaskToTSS(mem,newTSS,true,prevTR);
+					FIDELITY::MarkTaskRegisterBusy(*this,mem,nextTR,true);
+
+					state.EFLAGS|=EFLAGS_NESTED;
+
+					auto CR0=state.GetCR(0);
+					CR0|=CR0_TASK_SWITCHED;
+					SetCR(0,CR0);
+
+					return;
+				}
 				break;
 			case DESCTYPE_386_INT_GATE: // 0b1110: //"386 32-bit INT";
 				break;
@@ -198,7 +227,7 @@ inline void i486DXFidelityLayer <FIDELITY>::Interrupt(unsigned int INTNum,Memory
 					auto TempEFLAGS=state.EFLAGS;
 					auto TempSS=state.SS().value;
 					auto TempESP=state.ESP();
-					state.EFLAGS&=~(EFLAGS_VIRTUAL86|EFLAGS_TRAP);
+					state.EFLAGS&=~(EFLAGS_VIRTUAL86|EFLAGS_TRAP|EFLAGS_NESTED);
 
 					state.mode=state.RecalculateMode();
 
@@ -226,9 +255,9 @@ inline void i486DXFidelityLayer <FIDELITY>::Interrupt(unsigned int INTNum,Memory
 					LoadSegmentRegister(state.SS(),FetchWord(32,state.TR,TSS_OFFSET_SS0,mem),mem);
 					state.ESP()=FetchDword(32,state.TR,TSS_OFFSET_ESP0,mem);
 
-					Push(mem,32,state.GS().value,state.FS().value,state.DS().value);
-					Push(mem,32,state.ES().value,TempSS,TempESP);
-					Push(mem,32,TempEFLAGS,state.CS().value,state.EIP+numInstBytesForReturn);
+					Push(mem,gateOperandSize,state.GS().value,state.FS().value,state.DS().value);
+					Push(mem,gateOperandSize,state.ES().value,TempSS,TempESP);
+					Push(mem,gateOperandSize,TempEFLAGS,state.CS().value,state.EIP+numInstBytesForReturn);
 					// Equivalent>>
 					// Push32(mem,state.GS().value);
 					// Push32(mem,state.FS().value);
@@ -384,9 +413,9 @@ unsigned int i486DXFidelityLayer <FIDELITY>::LoadSegmentRegister(SegmentRegister
 }
 
 template <class FIDELITY>
-void i486DXFidelityLayer <FIDELITY>::LoadTaskRegister(unsigned int value,const Memory &mem)
+void i486DXFidelityLayer <FIDELITY>::LoadTaskRegister(unsigned int selector,const Memory &mem)
 {
-	LoadSegmentRegister(state.TR,value,mem);
+	LoadSegmentRegister(state.TR,selector,mem);
 }
 
 template <class FIDELITY>
