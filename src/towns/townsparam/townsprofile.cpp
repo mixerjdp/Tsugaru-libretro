@@ -152,6 +152,13 @@ std::vector <std::string> TownsProfile::Serialize(void) const
 	case WINDOW_FULLSCREEN:
 		text.push_back("WNDWMODE FULLSCREEN");
 		break;
+	case WINDOW_SPECIFY_SIZE:
+		{
+			sstream.str("");
+			sstream << "WNDWMODE SPECIFY " << windowSize[0] << " " << windowSize[1];
+			text.push_back(sstream.str());
+		}
+		break;
 	}
 
 	sstream.str("");
@@ -342,6 +349,22 @@ std::vector <std::string> TownsProfile::Serialize(void) const
 	text.push_back("DIFFMOUS ");
 	text.back()+=(differentialMouseIntegration ? "1" : "0");
 
+	text.push_back("ENABLLAN ");
+	text.back()+=(enableLAN ? "1" : "0");
+
+	for(auto fwd : portForwarding)
+	{
+		sstream.str("");
+		sstream << "PORTFWRD " << fwd.first << " " << fwd.second;
+		text.push_back(sstream.str());
+	}
+
+	text.push_back("FMT-3631 ");
+	text.back()+=(fmt3631 ? "1" : "0");
+
+	text.push_back("FMT-3632 ");
+	text.back()+=(fmt3632 ? "1" : "0");
+
 	return text;
 }
 bool TownsProfile::Deserialize(const std::vector <std::string> &text)
@@ -525,6 +548,12 @@ bool TownsProfile::Deserialize(const std::vector <std::string> &text)
 				else if(argv[1]=="FULLSCREEN")
 				{
 					windowModeOnStartUp=WINDOW_FULLSCREEN;
+				}
+				else if(argv[1]=="SPECIFY" && 4<=argv.size())
+				{
+					windowModeOnStartUp=WINDOW_SPECIFY_SIZE;
+					windowSize[0]=std::max(64,cpputil::Atoi(argv[2]));
+					windowSize[1]=std::max(64,cpputil::Atoi(argv[3]));
 				}
 			}
 		}
@@ -848,6 +877,25 @@ bool TownsProfile::Deserialize(const std::vector <std::string> &text)
 		else if("DIFFMOUS"==argv[0] && 2<=argv.size())
 		{
 			differentialMouseIntegration=atoi(argv[1].c_str());
+		}
+		else if("ENABLLAN"==argv[0] && 2<=argv.size())
+		{
+			enableLAN=(0!=atoi(argv[1].c_str()));
+		}
+		else if("PORTFWRD"==argv[0] && 3<=argv.size())
+		{
+			std::pair <uint16_t,uint16_t> fwd;
+			fwd.first=atoi(argv[1].c_str());
+			fwd.second=atoi(argv[2].c_str());
+			portForwarding.push_back(fwd);
+		}
+		else if("FMT-3631"==argv[0] && 2<=argv.size())
+		{
+			fmt3631=(0!=atoi(argv[1].c_str()));
+		}
+		else if("FMT-3632"==argv[0] && 2<=argv.size())
+		{
+			fmt3632=(0!=atoi(argv[1].c_str()));
 		}
 		else
 		{
@@ -1262,6 +1310,20 @@ std::vector <std::string> TownsProfile::MakeArgv(void) const
 		argv.push_back("-SPECIALPATH");
 		argv.push_back(p.first);
 		argv.push_back(p.second);
+	}
+
+	if(true==enableLAN)
+	{
+		argv.push_back("-REX3586");
+	}
+
+	if(true==fmt3631)
+	{
+		argv.push_back("-FMT3631");
+	}
+	else if(true==fmt3632)
+	{
+		argv.push_back("-FMT3632");
 	}
 
 	return argv;

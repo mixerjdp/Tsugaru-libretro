@@ -58,7 +58,6 @@ add_subdirectory(../../src/towns towns)
 
 # add_subdirectory(../../src/tests tests)
 
-add_subdirectory(../../src/externals/libchdr libchdr)
 add_subdirectory(../../src/discimg discimg)
 add_subdirectory(../../src/diskimg diskimg)
 

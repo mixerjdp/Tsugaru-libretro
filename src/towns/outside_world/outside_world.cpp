@@ -1375,6 +1375,7 @@ void Outside_World::ProcessMouse(class FMTownsCommon &towns,int lb,int mb,int rb
 	else
 	{
 		towns.DontControlMouse();
+		towns.NotifyLastKnownHostMousePosition(mx,my); // At lesat notify where the pointer is.
 	}
 	lastMx=mx;
 	lastMy=my;
@@ -1384,7 +1385,8 @@ void Outside_World::ProcessMouseDifferential(class FMTownsCommon &towns,int lb,i
 {
 	towns.SetMouseButtonState((0!=lb),(0!=rb));
 
-	if(dx<-1 || 1<dx || dy<-1 || 1<dy)
+	if(0!=dx || 0!=dy) // Removed Tolerance
+	// if(dx<-1 || 1<dx || dy<-1 || 1<dy)
 	{
 		// std::cout << "Mouse Integration Active" << std::endl;
 		mouseIntegrationActive=true;
@@ -1395,7 +1397,13 @@ void Outside_World::ProcessMouseDifferential(class FMTownsCommon &towns,int lb,i
 	{
 		towns.ControlMouseByDiffDirect(dx,dy);
 
-		if(-1<=dx && dx<=1 && -1<=dy && dy<=1) // Added tolerance.
+		if(0==dx && 0==dy) // Removed Tolerance
+		// (-1<=dx && dx<=1 && -1<=dy && dy<=1) // Added tolerance.
+		// 2026/07/23
+		// I do not remembery why I thought it was a good idea to have a tolerance here.
+		// But, the tolerance prevented mouse cursor from moving while the user is moving the mouse slowly.
+		// DX and DY are coming from the host mouse, which is unlikely to give noise.
+		// Probably not having tolerance is not an issue.
 		{
 			--mouseStationaryCount;
 			if(mouseStationaryCount<=0)
@@ -1666,7 +1674,7 @@ bool Outside_World::WindowInterface::SendNewImage(class FMTownsCommon &towns,boo
 		shared.renderer.Prepare(towns.crtc);
 		shared.renderer.damperWireLine=towns.var.damperWireLine;
 		shared.renderer.scanLineEffectIn15KHz=towns.var.scanLineEffectIn15KHz;
-		memcpy(shared.VRAMCopy,towns.physMem.state.VRAM,towns.crtc.GetEffectiveVRAMSize());
+		memcpy(shared.VRAMCopy,towns.GetUsingVRAM(),towns.crtc.GetEffectiveVRAMSize());
 		shared.paletteCopy=towns.crtc.GetPalette();
 		shared.chaseHQPaletteCopy=towns.crtc.chaseHQPalette;
 		shared.imageNeedsFlip=imageNeedsFlip;

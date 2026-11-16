@@ -41,6 +41,7 @@ public:
 	FsGuiButton *FDWriteProtBtn[TownsProfile::NUM_FDDRIVES]={nullptr};
 	FsGuiButton *scanLineEffectIn15KHzBtn=nullptr;
 	FsGuiButton *damperWireLineBtn=nullptr;
+	FsGuiDropList *fmt363xDrp=nullptr;
 	FsGuiTextBox *ROMDirTxt=nullptr;
 	FsGuiTextBox *CMOSFileTxt=nullptr;
 	FsGuiTextBox *CDImgTxt=nullptr;
@@ -133,6 +134,8 @@ public:
 
 	FsGuiTextBox *RS232CtoTCPTxt=nullptr;
 
+	FsGuiButton *enableLANBtn=nullptr;
+
 	ProfileDialog(FsGuiMainCanvas *canvasPtr);
 
 	void Make(const UiText &ui);
@@ -147,6 +150,7 @@ public:
 	YsString GetDefaultStateFileName(void) const;
 	YsString GetDefaultFDImageFileName(int i) const;
 	YsString GetDefaultHDImageFileName(int i) const;
+	YsString GetDefaultKeyMappingFile(void) const;
 	YsString MakeUpAnyImageFileName(YsString filePart) const;
 
 	FsGuiTextBox *nowBrowsingTxt=nullptr;

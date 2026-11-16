@@ -296,6 +296,11 @@ TownsCommandInterpreter::TownsCommandInterpreter()
 	featureMap["DIRECTTYPE"]=ENABLE_DIRECT_TYPE_MODE;
 	featureMap["CONSOUT"]=ENABLE_CONSOLE_STEAL;
 	featureMap["CONSSTEAL"]=ENABLE_CONSOLE_STEAL;
+	featureMap["IOLOG"]=ENABLE_IOLOG;
+	featureMap["FMT3631MON"]=ENABLE_FMT3631MON;
+	featureMap["FMT3632MON"]=ENABLE_FMT3631MON;
+	featureMap["FMT3631SNEAK"]=ENABLE_FMT3631SNEAK;
+	featureMap["FMT3632SNEAK"]=ENABLE_FMT3631SNEAK;
 
 	dumpableMap["CALLSTACK"]=DUMP_CALLSTACK;
 	dumpableMap["CST"]=DUMP_CALLSTACK;
@@ -355,6 +360,14 @@ TownsCommandInterpreter::TownsCommandInterpreter()
 	dumpableMap["TGDRV"]=DUMP_TGDRV;
 	dumpableMap["IO"]=DUMP_IOLIST;
 	dumpableMap["IOLIST"]=DUMP_IOLIST;
+	dumpableMap["NET"]=DUMP_LAN;
+	dumpableMap["LAN"]=DUMP_LAN;
+	dumpableMap["IOLOG"]=DUMP_IOLOG;
+	dumpableMap["FMT3631"]=DUMP_FMT3631;
+	dumpableMap["FMT-3631"]=DUMP_FMT3631;
+	dumpableMap["FMT3632"]=DUMP_FMT3631;
+	dumpableMap["FMT-3632"]=DUMP_FMT3631;
+	dumpableMap["FMT3631MORE"]=DUMP_FMT3631MORE;
 
 
 	breakEventMap["ICW1"]=   BREAK_ON_PIC_IWC1;
@@ -366,6 +379,8 @@ TownsCommandInterpreter::TownsCommandInterpreter()
 	breakEventMap["FDCREADADR"]=BREAK_ON_FDC_READADDRESS;
 	breakEventMap["FDCREADADDR"]=BREAK_ON_FDC_READADDRESS;
 	breakEventMap["INT"]=    BREAK_ON_INT;
+	breakEventMap["EXCEPTIONAT"]=BREAK_ON_EXCEPTION_AT;
+	breakEventMap["EXAT"]=BREAK_ON_EXCEPTION_AT;
 	breakEventMap["FOPEN"]=  BREAK_ON_FOPEN;
 	breakEventMap["RDCVRAM"]=BREAK_ON_CVRAM_READ;
 	breakEventMap["WRCVRAM"]=BREAK_ON_CVRAM_WRITE;
@@ -395,6 +410,8 @@ TownsCommandInterpreter::TownsCommandInterpreter()
 	breakEventMap["VM86MODE"]=BREAK_ON_VM86_MODE;
 	breakEventMap["VXDCALL"]=BREAK_ON_VXD_CALL;
 	breakEventMap["CST"]=BREAK_ON_CALLSTACK_DEPTH;
+	breakEventMap["FMT3631UNSUP"]=BREAK_ON_UNSUPPORTED_FMT3631CMD;
+	breakEventMap["FMT3632UNSUP"]=BREAK_ON_UNSUPPORTED_FMT3631CMD;
 }
 
 void TownsCommandInterpreter::PrintHelp(void) const
@@ -608,6 +625,7 @@ void TownsCommandInterpreter::PrintHelp(void) const
 	std::cout << "BP EIP|BRK EIP" << std::endl;
 	std::cout << "BP CS:EIP|BRK CS:EIP" << std::endl;
 	std::cout << "  Add a break point." << std::endl;
+	std::cout << "  BP LINE:10000 1FFFF for setting break point for a range of linear address.\n";
 	std::cout << "BPPC EIP|BRK EIP passCount" << std::endl;
 	std::cout << "BPPC CS:EIP passCount" << std::endl;
 	std::cout << "  Add a break point with pass count" << std::endl;
@@ -826,6 +844,14 @@ void TownsCommandInterpreter::PrintHelp(void) const
 	std::cout << "  Direct-type mode.\n";
 	std::cout << "CONSOUT / CONSSTEAL\n";
 	std::cout << "  Override CON and INT 29H to redirect output to the host terminal.\n";
+	std::cout << "IOLOG\n";
+	std::cout << "  I/O access log.\n";
+	std::cout << "FMT3631MON\n";
+	std::cout << "FMT3632MON\n";
+	std::cout << "  FMT-3631/3632 monitor.\n";
+	std::cout << "FMT3631SNEAK\n";
+	std::cout << "FMT3632SNEAK\n";
+	std::cout << "  FMT-3631/3632 sneak mode (show extra lines below visible part of the VRAM).\n";
 
 
 	std::cout << "<< Information that can be printed >>" << std::endl;
@@ -922,6 +948,15 @@ void TownsCommandInterpreter::PrintHelp(void) const
 	std::cout << "  List of known IO ports.\n";
 	std::cout << "IO portnumber-in-hexadecimal\n";
 	std::cout << "  Show short explanation of the IO port.\n";
+	std::cout << "LAN\n";
+	std::cout << "  Ethernet adapter state.\n";
+	std::cout << "IOLOG\n";
+	std::cout << "  I/O access log.\n";
+	std::cout << "FMT3631\n";
+	std::cout << "FMT-3631\n";
+	std::cout << "  FMT-3631 status.\n";
+	std::cout << "FMT3631MORE\n";
+	std::cout << "  MOre info about FMT-3631/3632.\n";
 	std::cout << "" << std::endl;
 
 	std::cout << "<< Event that can break >>" << std::endl;
@@ -940,6 +975,9 @@ void TownsCommandInterpreter::PrintHelp(void) const
 	std::cout << "INT n AX=hhhh" << std::endl;
 	std::cout << "INT n CSEIP=cs:eip EIP=eip" << std::endl;
 	std::cout << "  Break on interrupt.  Can specify specific multiple CS:EIP or EIP." << std::endl;
+	std::cout << "EXCEPTIONAT CS:EIP\n";
+	std::cout << "EXAT CS:EIP\n";
+	std::cout << "  Any exception at CS:EIP.\n";
 	std::cout << "FOPEN fileNameWildCard" << std::endl;
 	std::cout << "  Break when fopen,fcreate with the given file name." << std::endl;
 	std::cout << "RDCVRAM" << std::endl;
@@ -974,6 +1012,8 @@ void TownsCommandInterpreter::PrintHelp(void) const
 	std::cout << "  Windows 3.1 VxD service call." << std::endl;
 	std::cout << "CST depth" << std::endl;
 	std::cout << "  When the call stack depth exceeds the threshold." << std::endl;
+	std::cout << "FMT3631UNSUP\n";
+	std::cout << "  When unsupported features of FMT-3631 is used.\n";
 }
 
 void TownsCommandInterpreter::PrintError(int errCode) const
@@ -2167,6 +2207,7 @@ void TownsCommandInterpreter::Execute_Enable(FMTownsCommon &towns,Command &cmd,O
 			break;
 		case ENABLE_DIFFERENTIAL_MOUSE_INTEGRATION:
 			outside_world->differentialMouseIntegration=true;
+			outside_world->ShowMouseCursor(false);
 			std::cout << "Enabled differential mouse integration\n";
 			break;
 		case ENABLE_DIRECT_TYPE_MODE:
@@ -2178,6 +2219,18 @@ void TownsCommandInterpreter::Execute_Enable(FMTownsCommon &towns,Command &cmd,O
 			break;
 		case ENABLE_CONSOLE_STEAL:
 			Enable_Disable_ConsoleSteal(towns,true);
+			break;
+		case ENABLE_IOLOG:
+			towns.io.EnableLog();
+			std::cout << "Enabled I/O log.\n";
+			break;
+		case ENABLE_FMT3631MON:
+			towns.fmt3631.monitorCtrl=true;
+			std::cout << "Enabled FMT-3631/3632 monitor.\n";
+			break;
+		case ENABLE_FMT3631SNEAK:
+			towns.fmt3631.sneak=64;
+			std::cout << "Enabled FMT-3631/3632 sneak.\n";
 			break;
 		}
 	}
@@ -2314,6 +2367,7 @@ void TownsCommandInterpreter::Execute_Disable(FMTownsCommon &towns,Command &cmd,
 			break;
 		case ENABLE_DIFFERENTIAL_MOUSE_INTEGRATION:
 			outside_world->differentialMouseIntegration=false;
+			outside_world->ShowMouseCursor(true);
 			std::cout << "Disabled differential mouse integration\n";
 			break;
 		case ENABLE_DIRECT_TYPE_MODE:
@@ -2322,6 +2376,18 @@ void TownsCommandInterpreter::Execute_Disable(FMTownsCommon &towns,Command &cmd,
 			break;
 		case ENABLE_CONSOLE_STEAL:
 			Enable_Disable_ConsoleSteal(towns,false);
+			break;
+		case ENABLE_IOLOG:
+			towns.io.DisableLog();
+			std::cout << "Disabled I/O log.\n";
+			break;
+		case ENABLE_FMT3631MON:
+			towns.fmt3631.monitorCtrl=false;
+			std::cout << "Disabled FMT-3631 monitor.\n";
+			break;
+		case ENABLE_FMT3631SNEAK:
+			towns.fmt3631.sneak=0;
+			std::cout << "Disabled FMT-3631/3632 sneak.\n";
 			break;
 		}
 	}
@@ -2573,6 +2639,7 @@ void TownsCommandInterpreter::Execute_Toggle(FMTownsCommon &towns,Command &cmd,c
 			break;
 		case ENABLE_DIFFERENTIAL_MOUSE_INTEGRATION:
 			cpputil::Toggle(outside_world->differentialMouseIntegration);
+			outside_world->ShowMouseCursor(false==outside_world->differentialMouseIntegration);
 			std::cout << "Differential mouse integration is";
 			std::cout << cpputil::BoolToOnOffStr(outside_world->differentialMouseIntegration) << ".\n";
 			break;
@@ -2612,7 +2679,32 @@ void TownsCommandInterpreter::Execute_AddBreakPoint(FMTownsCommon &towns,Command
 	else
 	{
 		auto farPtr=towns.CPU().TranslateFarPointer(cmdutil::MakeFarPointer(cmd.argv[1],towns.CPU()));
-		towns.debugger.AddBreakPoint(farPtr,info);
+		if(i486DXCommon::FarPointer::LINEAR_ADDR==farPtr.SEG)
+		{
+			// BP LINE:10000 1FFFF
+			//   To break when CS:EIP Linear addr is between 10000H and 1FFFFh
+			if(3<=cmd.argv.size())
+			{
+				uint32_t addr2=0;
+				TownsLineParserHexadecimal parser(&towns.CPU());
+				if(true==parser.Analyze(cmd.argv[2]))
+				{
+					addr2=parser.Evaluate();
+				}
+				towns.debugger.SetLinearBreakPointRange(farPtr.OFFSET,addr2);
+				std::cout << "Break at Linear Address between " << cpputil::Uitox(farPtr.OFFSET) << "H and " << cpputil::Uitox(addr2) << "H\n";
+			}
+			else
+			{
+				towns.debugger.SetLinearBreakPointRange(farPtr.OFFSET,farPtr.OFFSET);
+				std::cout << "Break at Linear Address " << cpputil::Uitox(farPtr.OFFSET) << "H\n";
+			}
+			std::cout << "BP LINE:0 0 to clear.\n";
+		}
+		else
+		{
+			towns.debugger.AddBreakPoint(farPtr,info);
+		}
 	}
 }
 
@@ -3185,6 +3277,55 @@ void TownsCommandInterpreter::Execute_Dump(FMTownsCommon &towns,Command &cmd)
 				if(true!=foundAtLeastOne)
 				{
 					std::cout << "No known io in this range.\n";
+				}
+			}
+			break;
+		case DUMP_LAN:
+			for(auto str : towns.rex3586.GetStatusText())
+			{
+				std::cout << str << "\n";
+			}
+			break;
+		case DUMP_IOLOG:
+			{
+				auto ioLabel=FMTownsIOMap();
+				std::cout << "PORT  Count i8/i16/i32/o8/o16/o32\n";
+				for(auto l : towns.io.log)
+				{
+					auto port=l.first;
+					auto log=l.second;
+
+					std::cout << cpputil::Ustox(port) << "(";
+
+					auto found=ioLabel.find(port);
+					if(ioLabel.end()!=found)
+					{
+						std::cout << found->second;
+					}
+					else
+					{
+						std::cout << "???";
+					}
+					std::cout << ")  ";
+
+					std::cout << log.in8 << '/' << log.in16 << '/' << log.in32 << '/';
+					std::cout << log.out8 << '/' << log.out16 << '/' << log.out32 << '\n';
+				}
+			}
+			break;
+		case DUMP_FMT3631:
+			{
+				for(auto str : towns.fmt3631.GetStatusText())
+				{
+					std::cout << str << "\n";
+				}
+			}
+			break;
+		case DUMP_FMT3631MORE:
+			{
+				for(auto str : towns.fmt3631.GetAdditionalStatusText())
+				{
+					std::cout << str << "\n";
 				}
 			}
 			break;
@@ -3884,6 +4025,20 @@ void TownsCommandInterpreter::Execute_BreakOn(FMTownsCommon &towns,Command &cmd,
 					return;
 				}
 				break;
+			case BREAK_ON_EXCEPTION_AT:
+				if(3<=cmd.argv.size())
+				{
+					auto farPtr=cmdutil::MakeFarPointer(cmd.argv[2],towns.CPU());
+					farPtr=towns.CPU().TranslateFarPointer(farPtr);
+					towns.debugger.BreakOnExceptionAt(farPtr);
+					std::cout << "Break on Exception At:" << farPtr.Format() << "\n";
+				}
+				else
+				{
+					PrintError(ERROR_TOO_FEW_ARGS);
+					return;
+				}
+				break;
 			case BREAK_ON_CVRAM_READ:
 				towns.physMem.FMRVRAMAccess.breakOnCVRAMRead=true;
 				break;
@@ -4052,6 +4207,9 @@ void TownsCommandInterpreter::Execute_BreakOn(FMTownsCommon &towns,Command &cmd,
 					return;
 				}
 				break;
+			case BREAK_ON_UNSUPPORTED_FMT3631CMD:
+				towns.fmt3631.breakOnUnsupported=true;
+				break;
 			}
 			std::cout << "Break On " << reason << " is ON." << std::endl;
 		}
@@ -4147,10 +4305,26 @@ void TownsCommandInterpreter::Execute_ClearBreakOn(FMTownsCommon &towns,Command 
 			if(3<=cmd.argv.size())
 			{
 				towns.debugger.ClearBreakOnINT(cpputil::Xtoi(cmd.argv[2].c_str()));
+				std::cout << "Cleared break on INT " << cpputil::Ubtox(cpputil::Xtoi(cmd.argv[2].c_str())) << "H\n";
 			}
 			else
 			{
 				towns.debugger.ClearBreakOnINT();
+				std::cout << "Cleared all break on INT\n";
+			}
+			break;
+		case BREAK_ON_EXCEPTION_AT:
+			if(3<=cmd.argv.size())
+			{
+				auto farPtr=cmdutil::MakeFarPointer(cmd.argv[2],towns.CPU());
+				farPtr=towns.CPU().TranslateFarPointer(farPtr);
+				towns.debugger.ClearBreakOnExceptionAt(farPtr);
+				std::cout << "Cleared break on Exception At:" << farPtr.Format() << "\n";
+			}
+			else
+			{
+				towns.debugger.ClearBreakOnExceptionAt();
+				std::cout << "Cleared all break on Exception\n";
 			}
 			break;
 		case BREAK_ON_FOPEN:
@@ -4339,6 +4513,9 @@ void TownsCommandInterpreter::Execute_ClearBreakOn(FMTownsCommon &towns,Command 
 			break;
 		case BREAK_ON_CALLSTACK_DEPTH:
 			towns.debugger.ClearBreakOnCallStackDepth();
+			break;
+		case BREAK_ON_UNSUPPORTED_FMT3631CMD:
+			towns.fmt3631.breakOnUnsupported=false;
 			break;
 		}
 		std::cout << "Break On " << iter->first << " is OFF." << std::endl;

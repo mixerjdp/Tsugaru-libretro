@@ -4,6 +4,325 @@
 
 #include <iostream>
 
+#if 1
+template <class CPUCLASS,class MEMCLASS,class FUNCCLASS>
+inline unsigned int i486DXCommon::FetchOperandRMandDecode(
+    Operand &op,int addressSize,int dataSize,
+    CPUCLASS &cpu,Instruction &inst,MemoryAccess::ConstPointer &ptr,const SegmentRegister &seg,unsigned int offset,MEMCLASS &mem)
+{
+	auto *operandPtr=inst.operand;
+	operandPtr[0]=FUNCCLASS::FetchInstructionByte(cpu,ptr,inst.codeAddressSize,seg,offset,mem);
+
+	NUM_BYTES_TO_BASIC_REG_BASE
+	NUM_BYTES_TO_REGISTER_OPERAND_TYPE
+
+	const auto MODR_M=operandPtr[0];
+	// const auto REG_OPCODE=((MODR_M>>3)&7);
+	#define R_M (MODR_M&7)
+
+	op.Clear();
+
+	if(16==addressSize)
+	{
+		static const unsigned char caseTable[256]=
+		{
+			3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,
+			3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,3,3,3,3,3,3,0,3,
+			1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+			1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+			2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+			2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+			4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+			4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,
+		};
+		static const unsigned int MODR_M_to_BaseIndex[256][2]=
+		{
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+			{REG_BX,REG_SI},{REG_BX,REG_DI},{REG_BP,REG_SI},{REG_BP,REG_DI},{REG_SI,REG_NULL},{REG_DI,REG_NULL},{REG_BP,REG_NULL},{REG_BX,REG_NULL},
+		};
+
+		switch(caseTable[operandPtr[0]])
+		{
+		case 0:
+			FUNCCLASS::FetchInstructionTwoBytes(operandPtr+1,cpu,ptr,inst.codeAddressSize,seg,offset+1,mem);
+
+			op.operandType=OPER_ADDR;
+			op.baseReg=REG_NULL;
+			op.indexReg=REG_NULL;
+			// indexShift=0; Already cleared in Clear()
+			op.offset=cpputil::GetSignedWord(operandPtr+1);
+			op.offsetBits=16;
+			inst.operandLen=3;
+			break;
+		case 1:
+			operandPtr[1]=FUNCCLASS::FetchInstructionByte(cpu,ptr,inst.codeAddressSize,seg,offset+1,mem);
+
+			op.operandType=OPER_ADDR;
+			// indexShisft=0; Already cleared in Clear()
+			op.baseReg=MODR_M_to_BaseIndex[MODR_M][0];
+			op.indexReg=MODR_M_to_BaseIndex[MODR_M][1];
+			op.offsetBits=8;
+			op.offset=cpputil::GetSignedByte(operandPtr[1]);
+			inst.operandLen=2;
+			break;
+		case 2:
+			FUNCCLASS::FetchInstructionTwoBytes(operandPtr+1,cpu,ptr,inst.codeAddressSize,seg,offset+1,mem);
+
+			op.operandType=OPER_ADDR;
+			// indexShisft=0; Already cleared in Clear()
+			op.baseReg=MODR_M_to_BaseIndex[MODR_M][0];
+			op.indexReg=MODR_M_to_BaseIndex[MODR_M][1];
+			op.offsetBits=16;
+			op.offset=cpputil::GetSignedWord(operandPtr+1);
+			inst.operandLen=3;
+			break;
+		case 3:
+			op.operandType=OPER_ADDR;
+			// indexShisft=0; Already cleared in Clear()
+			op.baseReg=MODR_M_to_BaseIndex[MODR_M][0];
+			op.indexReg=MODR_M_to_BaseIndex[MODR_M][1];
+			op.offset=0;  // Tentative
+			op.offsetBits=16;
+			inst.operandLen=1;
+			break;
+		case 4:
+			op.operandType=numBytesToRegisterOperandType[dataSize>>3];
+			op.reg=R_M+(numBytesToBasicRegBase[dataSize>>3]);
+			inst.operandLen=1;
+			break;
+		}
+	}
+	else // if(32==addressSize)
+	{
+		static const unsigned int SIB_INDEX[8]=
+		{
+			REG_EAX,
+			REG_ECX,
+			REG_EDX,
+			REG_EBX,
+			REG_NULL,
+			REG_EBP,
+			REG_ESI,
+			REG_EDI,
+		};
+
+		const auto MOD=((MODR_M>>6)&3);
+
+		if(MOD == 3)
+		{
+			switch (dataSize)
+			{
+			case 8:
+				op.operandType = OPER_REG8;
+				op.reg = R_M + REG_8BIT_REG_BASE;
+				break;
+			case 16:
+				op.operandType = OPER_REG16;
+				op.reg = R_M + REG_16BIT_REG_BASE;
+				break;
+			default: // 32
+				op.operandType = OPER_REG32;
+				op.reg = R_M + REG_32BIT_REG_BASE;
+				break;
+			}
+			inst.operandLen = 1;
+		}
+		else if(R_M == 4)
+		{
+			switch (MOD)
+			{
+			case 0:
+			{
+				operandPtr[1] = FUNCCLASS::FetchInstructionByte(cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+
+				op.operandType = OPER_ADDR;
+				// indexShift=0; Already cleared in Clear()
+				op.offset = 0;
+
+				auto SIB = operandPtr[1];
+				auto SS = ((SIB >> 6) & 3);
+				auto INDEX = ((SIB >> 3) & 7);
+				auto BASE = (SIB & 7);
+
+				if (5 != BASE)
+				{
+					op.baseReg = REG_32BIT_REG_BASE + BASE;
+					inst.operandLen = 2;
+				}
+				else
+				{
+					FUNCCLASS::FetchInstructionFourBytes(operandPtr + 2, cpu, ptr, inst.codeAddressSize, seg, offset + 2, mem);
+
+					op.baseReg = REG_NULL; // 0b00==MOD && 5==BASE  disp32[index]
+					op.offsetBits = 32;
+					op.offset = cpputil::GetSignedDword(operandPtr + 2);
+					inst.operandLen = 6;
+				}
+
+				op.indexReg = SIB_INDEX[INDEX];
+				op.indexShift = SS;
+			}
+			break;
+			case 1:
+			{
+				FUNCCLASS::FetchInstructionTwoBytes(operandPtr + 1, cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+
+				op.operandType = OPER_ADDR;
+				// indexShift=0; Already cleared in Clear()
+				op.offset = 0;
+
+				auto SIB = operandPtr[1];
+				auto SS = ((SIB >> 6) & 3);
+				auto INDEX = ((SIB >> 3) & 7);
+				auto BASE = (SIB & 7);
+
+				if (5 != BASE)
+				{
+					op.baseReg = REG_32BIT_REG_BASE + BASE;
+				}
+				else
+				{
+					op.baseReg = REG_EBP;
+				}
+
+				op.indexReg = SIB_INDEX[INDEX];
+				op.indexShift = SS;
+
+				op.offsetBits = 8;
+				op.offset = cpputil::GetSignedByte(operandPtr[2]);
+
+				inst.operandLen = 3;
+			}
+			break;
+			default:
+			{
+				operandPtr[1] = FUNCCLASS::FetchInstructionByte(cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+				FUNCCLASS::FetchInstructionFourBytes(operandPtr + 2, cpu, ptr, inst.codeAddressSize, seg, offset + 2, mem);
+
+				op.operandType = OPER_ADDR;
+				// indexShift=0; Already cleared in Clear()
+				op.offset = 0;
+
+				auto SIB = operandPtr[1];
+				auto SS = ((SIB >> 6) & 3);
+				auto INDEX = ((SIB >> 3) & 7);
+				auto BASE = (SIB & 7);
+
+				if (5 != BASE)
+				{
+					op.baseReg = REG_32BIT_REG_BASE + BASE;
+				}
+				else
+				{
+					op.baseReg = REG_EBP; // 0b10==MOD   disp[EBP][index]
+				}
+
+				op.indexReg = SIB_INDEX[INDEX];
+				op.indexShift = SS;
+
+				op.offsetBits = 32;
+				op.offset = cpputil::GetSignedDword(operandPtr + 2);
+
+				inst.operandLen = 6;
+			}
+			break;
+			}
+		}
+		else if(MOD == 0)
+		{
+			if(R_M == 5)
+			{
+				FUNCCLASS::FetchInstructionFourBytes(operandPtr + 1, cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+
+				op.operandType = OPER_ADDR;
+				op.baseReg = REG_NULL;
+				op.indexReg = REG_NULL;
+				// indexShift=0; Already cleared in Clear()
+				op.offset = cpputil::GetSignedDword(operandPtr + 1);
+				op.offsetBits = 32;
+				inst.operandLen = 5;
+			}
+			else
+			{
+				op.operandType = OPER_ADDR;
+				// indexShift=0; Already cleared in Clear()
+				op.offset = 0;
+				inst.operandLen = 1;
+
+				op.baseReg = REG_32BIT_REG_BASE + R_M;
+				op.indexReg = REG_NULL;
+			}
+		}
+		else if(MOD == 1)
+		{
+			operandPtr[1] = FUNCCLASS::FetchInstructionByte(cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+
+			op.operandType = OPER_ADDR;
+			// indexShift=0; Already cleared in Clear()
+
+			op.baseReg = REG_32BIT_REG_BASE + R_M;
+			op.indexReg = REG_NULL;
+
+			op.offsetBits = 8;
+			op.offset = cpputil::GetSignedByte(operandPtr[1]);
+			inst.operandLen = 2;
+		}
+		else // MOD == 2
+		{
+			FUNCCLASS::FetchInstructionFourBytes(operandPtr + 1, cpu, ptr, inst.codeAddressSize, seg, offset + 1, mem);
+
+			op.operandType = OPER_ADDR;
+			// indexShift=0; Already cleared in Clear()
+
+			op.baseReg = REG_32BIT_REG_BASE + R_M;
+			op.indexReg = REG_NULL;
+
+			op.offsetBits = 32;
+			op.offset = cpputil::GetSignedDword(operandPtr + 1);
+			inst.operandLen = 5;
+		}
+	}
+
+	inst.numBytes+=inst.operandLen;
+	return inst.operandLen;
+}
+#else
+// This table method is supposed to take fewer instructions.
+// It might be faster in a different CPU from Intel CPUs.
+// I leave it as #ifdef 0 just in case.
 template <class CPUCLASS,class MEMCLASS,class FUNCCLASS>
 inline unsigned int i486DXCommon::FetchOperandRMandDecode(
     Operand &op,int addressSize,int dataSize,
@@ -317,6 +636,7 @@ inline unsigned int i486DXCommon::FetchOperandRMandDecode(
 	inst.numBytes+=inst.operandLen;
 	return inst.operandLen;
 }
+#endif
 
 template <class CPUCLASS,class MEMCLASS,class FUNCCLASS>
 void i486DXCommon::FetchOperandLoop(CPUCLASS &cpu,InstructionAndOperand &instOp,MemoryAccess::ConstPointer &ptr,const SegmentRegister &seg,int offset,MEMCLASS &mem,unsigned int defOperSize,unsigned int defAddrSize)
@@ -727,7 +1047,7 @@ void i486DXCommon::FetchOperandLoop(CPUCLASS &cpu,InstructionAndOperand &instOp,
 		{
 			auto MODR_M = FUNCCLASS::PeekInstructionByte(cpu, ptr, inst.addressSize, seg, offset, mem);
 			auto REG = inst.GetREG(MODR_M);
-			if (4 == REG || 6 == REG)
+			if (6 == REG) // REG 4:SMSW although 80386 Programmer's Reference Manual says r/m16, it can accept full 32-bit.
 			{
 				inst.operandSize = 16;
 			}
@@ -1096,8 +1416,7 @@ inline uint8_t *i486DXFidelityLayer<FIDELITY>::GetOperandPointer16or32(
 template <class FIDELITY>
 inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t opSize,uint16_t instNumBytes,uint16_t newCS,uint32_t newEIP,uint16_t defClocks)
 {
-	typename FIDELITY::SavedCSEIP savedCSEIP;
-	FIDELITY::SaveCSEIP(savedCSEIP,*this);
+	auto savedCSEIP=FIDELITY::SaveCSEIP(*this);
 
 	auto prevCS=state.CS().value;
 	auto returnEIP=state.EIP+instNumBytes;
@@ -1111,6 +1430,8 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 		    newCS,newEIP,
 		    mem);
 	}
+
+	unsigned int nextOpSize=opSize;
 
 	if(MODE_NATIVE!=state.mode) // <-> (true==IsInRealMode() || true==GetVM())
 	{
@@ -1139,6 +1460,8 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 			{
 				auto ptr=GetCallGate(copyParamCount,newCS,mem);
 
+				nextOpSize=(DESC_TYPE_16BIT_CALL_GATE==descType ? 16 : 32);
+
 				if(0!=copyParamCount)
 				{
 					std::cout << "Call Gate with parameter count " << copyParamCount << " operand size " << opSize << std::endl;
@@ -1149,7 +1472,7 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 					debuggerPtr->ExternalBreak("Call Gate used with non-zero parameter count and 32-bit operand size.");
 				}
 
-				copyParamCount=copyParamCount*opSize/16;
+				copyParamCount=copyParamCount*nextOpSize/16;  // Looks like it is not operand size, but it is 16-bit call gate or 32-bit call gate.
 				uint32_t ESP=state.ESP();
 				if(16==GetStackAddressingSize())
 				{
@@ -1170,15 +1493,56 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 			break;
 		case DESCTYPE_AVAILABLE_286_TSS: //               1,
 		case DESCTYPE_BUSY_286_TSS: //                    3,
-		case DESCTYPE_TASK_GATE: //                       5,
 		case DESCTYPE_AVAILABLE_386_TSS: //               9,
 		case DESCTYPE_BUSY_386_TSS: //                 0x0B,
-			Abort("Call to Task not supported.");
+			std::cout << descType << "\n";
+			Abort("Call to TSS not supported.");
+			break;
+		case DESCTYPE_TASK_GATE: //                       5,
+			{
+				auto nextTR=state.CS().baseLinearAddr&0xFFFF; // Linear base address happens to be bytes 2-3 of the descriptor, which points to TSS.
+				SegmentRegister newTSS;
+				DebugLoadSegmentRegister(newTSS,nextTR,mem,MODE_NATIVE);
+				std::cout << "CALLF to Task Gate " << cpputil::Ustox(state.CS().value) << " " << cpputil::Ustox(nextTR) << "\n";
+				SaveStateToTSS(mem,instNumBytes,state.EFLAGS,prevCS);
+				auto prevTR=state.TR.value;
+
+				// CALLF to task does not clear the busy flag of the leaving task.
+
+				SwitchTaskToTSS(mem,newTSS,true,prevTR);  // Save backlink is true.
+
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,nextTR,true);
+
+				state.EFLAGS|=EFLAGS_NESTED;
+
+				auto CR0=state.GetCR(0);
+				CR0|=CR0_TASK_SWITCHED;
+				SetCR(0,CR0);
+			}
+			break;
+		case SEGTYPE_CODE_CONFORMING_EXECONLY: //   0b11100, // Code Conforming     Execute-Only
+		case SEGTYPE_CODE_CONFORMING_READABLE: //   0b11110, // Code Conforming     Readable
+			{
+				// Prob I also have to copy prev DPL to new CS and adjust RPL.
+				state.EIP=newEIP;
+				if(16==opSize)
+				{
+					state.EIP&=0xFFFF;
+				}
+			}
 			break;
 		case SEGTYPE_CODE_NONCONFORMING_EXECONLY: //0b11000, // Code Non-Conforming Execute-Only
 		case SEGTYPE_CODE_NONCONFORMING_READABLE: //0b11010, // Code Non-Conforming Readable
-		case SEGTYPE_CODE_CONFORMING_EXECONLY: //   0b11100, // Code Conforming     Execute-Only
-		case SEGTYPE_CODE_CONFORMING_READABLE: //   0b11110, // Code Conforming     Readable
+			if(true==FIDELITY::CheckJumpToHigherPrivilege(state.CS(),savedCSEIP))
+			{
+				newCS&=0xFFFC;
+				newCS|=state.CS().DPL;
+				FIDELITY::RestoreCSEIP(*this,savedCSEIP);
+				RaiseException(EXCEPTION_GP,newCS);
+				HandleException(true,mem,instNumBytes);
+				return defClocks;
+			}
+			else
 			{
 				state.EIP=newEIP;
 				if(16==opSize)
@@ -1209,7 +1573,7 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 				LoadSegmentRegister(state.SS(),FetchWord(32,state.TR,TSS_OFFSET_SS0+newCPL*8,mem),mem);
 				state.ESP()=FetchDword(32,state.TR,TSS_OFFSET_ESP0+newCPL*8,mem);
 			}
-			Push(mem,opSize,prevSS,prevESP);
+			Push(mem,nextOpSize,prevSS,prevESP);
 
 			for(int i=0; i<copyParamCount; ++i)
 			{
@@ -1218,7 +1582,7 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::CALLF(Memory &mem,uint16_t op
 		}
 	}
 
-	Push(mem,opSize,prevCS,returnEIP);
+	Push(mem,nextOpSize,prevCS,returnEIP);
 
 	FIDELITY::RestoreCSEIPIfException(*this,savedCSEIP);
 
@@ -1239,6 +1603,7 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::JMPF(Memory &mem,uint16_t opS
 
 		auto prevCPL=state.CS().DPL;
 		auto prevCS=state.CS().value;
+		auto prevCSEIP=FIDELITY::SaveCSEIP(*this);
 
 		LoadSegmentRegister(state.CS(),newCS,mem);
 		if(fidelity.HandleExceptionIfAny(*this,mem,instNumBytes))
@@ -1253,20 +1618,68 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::JMPF(Memory &mem,uint16_t opS
 		case DESC_TYPE_32BIT_CALL_GATE:
 			Abort("JMPF to gate not supported.");
 			break;
-		case DESCTYPE_AVAILABLE_286_TSS: //               1,
 		case DESCTYPE_BUSY_286_TSS: //                    3,
-		case DESCTYPE_TASK_GATE: //                       5,
 		case DESCTYPE_BUSY_386_TSS: //                 0x0B,
-			Abort("JMPF to Task not supported.");
+			std::cout << cpputil::Ubtox(descType) << "\n";
+			Abort("JMPF to Busy Task not handled.");
+			break;
+		case DESCTYPE_AVAILABLE_286_TSS: //               1,
+			Abort("JMPF to 286 Task not supported.");
+			break;
+		case DESCTYPE_TASK_GATE: //                       5,
+			{
+				auto nextTR=state.CS().baseLinearAddr&0xFFFF; // Linear base address happens to be bytes 2-3 of the descriptor, which points to TSS.
+				SegmentRegister newTSS;
+				DebugLoadSegmentRegister(newTSS,nextTR,mem,MODE_NATIVE);
+				std::cout << "JMPF to Task Gate " << cpputil::Ustox(state.CS().value) << " " << cpputil::Ustox(nextTR) << "\n";
+				SaveStateToTSS(mem,instNumBytes,state.EFLAGS,prevCS);
+				auto prevTR=state.TR.value;
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,state.TR.value,false);
+				SwitchTaskToTSS(mem,newTSS,false,prevTR);
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,nextTR,true);
+
+				auto CR0=state.GetCR(0);
+				CR0|=CR0_TASK_SWITCHED;
+				SetCR(0,CR0);
+			}
 			break;
 		case DESCTYPE_AVAILABLE_386_TSS: //               9,
-			SwitchTaskToTSS(mem,instNumBytes,prevCS,state.CS(),false);
+			{
+				SaveStateToTSS(mem,instNumBytes,state.EFLAGS,prevCS);
+				auto prevTR=state.TR.value;
+				auto nextTR=state.CS().value; // CS is loaded above, but it is task register actually.
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,state.TR.value,false);
+				SwitchTaskToTSS(mem,state.CS(),false,prevTR);
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,nextTR,true);
+
+				auto CR0=state.GetCR(0);
+				CR0|=CR0_TASK_SWITCHED;
+				SetCR(0,CR0);
+			}
 			break;
 
-		case SEGTYPE_CODE_NONCONFORMING_EXECONLY: //0b11000, // Code Non-Conforming Execute-Only
-		case SEGTYPE_CODE_NONCONFORMING_READABLE: //0b11010, // Code Non-Conforming Readable
 		case SEGTYPE_CODE_CONFORMING_EXECONLY: //   0b11100, // Code Conforming     Execute-Only
 		case SEGTYPE_CODE_CONFORMING_READABLE: //   0b11110, // Code Conforming     Readable
+				// Prob I also have to copy prev DPL to new CS and adjust RPL.
+			{
+				state.EIP=newEIP;
+				if(16==opSize)
+				{
+					state.EIP&=0xFFFF;
+				}
+			}
+			break;
+		case SEGTYPE_CODE_NONCONFORMING_EXECONLY: //0b11000, // Code Non-Conforming Execute-Only
+		case SEGTYPE_CODE_NONCONFORMING_READABLE: //0b11010, // Code Non-Conforming Readable
+			if(true==FIDELITY::CheckJumpToHigherPrivilege(state.CS(),prevCSEIP))
+			{
+				newCS&=0xFFFC;
+				newCS|=state.CS().DPL;
+				FIDELITY::RestoreCSEIP(*this,prevCSEIP);
+				RaiseException(EXCEPTION_GP,newCS);
+				HandleException(true,mem,instNumBytes);
+			}
+			else
 			{
 				state.EIP=newEIP;
 				if(16==opSize)
@@ -1285,7 +1698,7 @@ inline unsigned int i486DXFidelityLayer<FIDELITY>::JMPF(Memory &mem,uint16_t opS
 }
 
 template <class FIDELITY>
-void i486DXFidelityLayer<FIDELITY>::SwitchTaskToTSS(Memory &mem,uint32_t instNumBytes,uint16_t prevCS,const SegmentRegister &newTSS,bool nested)
+void i486DXFidelityLayer<FIDELITY>::SaveStateToTSS(Memory &mem,uint32_t instNumBytes,uint32_t EFLAGS,uint16_t prevCS)
 {
 	// INTEL 80386 PROGRAMMER'S REFERENCE MANUAL 1986
 	// Section 7.5 Page 138
@@ -1296,87 +1709,242 @@ void i486DXFidelityLayer<FIDELITY>::SwitchTaskToTSS(Memory &mem,uint32_t instNum
 	// 2. Check if the next TSS descriptor is marked present and has a valid limit.
 	//    I'll worry about it later.
 
-	// 3. Save the state of the current task.
-	//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_LDT,state.LDTR.selector);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EFLAGS,state.EFLAGS);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EIP,state.EIP+instNumBytes);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EAX,state.EAX());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ECX,state.ECX());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EDX,state.EDX());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EBX,state.EBX());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ESP,state.ESP());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EBP,state.EBP());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ESI,state.ESI());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EDI,state.EDI());
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ES,state.ES().value);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_CS,prevCS);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_SS,state.SS().value);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_DS,state.DS().value);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_FS,state.FS().value);
-	DebugStoreDword(mem,32,state.TR,TSS_OFFSET_GS,state.GS().value);
-
-	// 4. Load Task Register
-	LoadTaskRegister(newTSS.value,mem);
-
-	// 5. Load incoming task's state.
-	//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS, PDBR(=CR3)
-	InvalidateDescriptorCache();
-	auto selector=DebugFetchWord(32,state.TR,TSS_OFFSET_LDT,mem);
-	auto TI=(0!=(selector&4));
-	state.LDTR.selector=selector;
-	if(0==selector)
+	if(DESCTYPE_AVAILABLE_286_TSS==state.TR.GetType() ||
+	   DESCTYPE_BUSY_286_TSS==state.TR.GetType())
 	{
-		state.LDTR.linearBaseAddr=0;
-		state.LDTR.limit=0;
+		// 3. Save the state of the current task.
+		//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS
+		DebugStoreWord(mem,32,state.TR,TSS286_LDTR,state.LDTR.selector);
+		DebugStoreWord(mem,32,state.TR,TSS286_FLAGS,EFLAGS);
+		DebugStoreWord(mem,32,state.TR,TSS286_IP,state.EIP+instNumBytes);
+		DebugStoreWord(mem,32,state.TR,TSS286_AX,state.EAX());
+		DebugStoreWord(mem,32,state.TR,TSS286_CX,state.ECX());
+		DebugStoreWord(mem,32,state.TR,TSS286_DX,state.EDX());
+		DebugStoreWord(mem,32,state.TR,TSS286_BX,state.EBX());
+		DebugStoreWord(mem,32,state.TR,TSS286_SP,state.ESP());
+		DebugStoreWord(mem,32,state.TR,TSS286_BP,state.EBP());
+		DebugStoreWord(mem,32,state.TR,TSS286_SI,state.ESI());
+		DebugStoreWord(mem,32,state.TR,TSS286_DI,state.EDI());
+		DebugStoreWord(mem,32,state.TR,TSS286_ES,state.ES().value);
+		DebugStoreWord(mem,32,state.TR,TSS286_CS,prevCS);
+		DebugStoreWord(mem,32,state.TR,TSS286_SS,state.SS().value);
+		DebugStoreWord(mem,32,state.TR,TSS286_DS,state.DS().value);
 	}
-	else if(0!=TI) // Pointing LDT
+	else if(DESCTYPE_AVAILABLE_386_TSS==state.TR.GetType() ||
+	        DESCTYPE_BUSY_386_TSS==state.TR.GetType())
 	{
-		Abort("Task Switching Failure (LDT)");
+		// 3. Save the state of the current task.
+		//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_LDT,state.LDTR.selector);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EFLAGS,EFLAGS);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EIP,state.EIP+instNumBytes);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EAX,state.EAX());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ECX,state.ECX());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EDX,state.EDX());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EBX,state.EBX());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ESP,state.ESP());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EBP,state.EBP());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ESI,state.ESI());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_EDI,state.EDI());
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_ES,state.ES().value);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_CS,prevCS);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_SS,state.SS().value);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_DS,state.DS().value);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_FS,state.FS().value);
+		DebugStoreDword(mem,32,state.TR,TSS_OFFSET_GS,state.GS().value);
 	}
 	else
 	{
-		SegmentRegister seg;
-		LoadSegmentRegister(seg,selector,mem,MODE_NATIVE); // Force to read from GDT by setting mode=MODE_NATIVE
-		const unsigned char byteData[]=
+		Abort("Task Switching from non-TSS exception not handled yet.");
+	}
+}
+
+template <class FIDELITY>
+void i486DXFidelityLayer<FIDELITY>::SwitchTaskToTSS(Memory &mem,const SegmentRegister &newTSS,bool savePrevTR,uint16_t prevTR)
+{
+	if(DESCTYPE_AVAILABLE_286_TSS==newTSS.GetType() ||
+	   DESCTYPE_BUSY_286_TSS==newTSS.GetType())
+	{
+		// 4. Load Task Register
+		LoadTaskRegister(newTSS.value,mem);
+
+		// 5. Load incoming task's state.
+		//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS, PDBR(=CR3)
+		InvalidateDescriptorCache();
+		auto selector=DebugFetchWord(32,state.TR,TSS286_LDTR,mem);
+		auto TI=(0!=(selector&4));
+		state.LDTR.selector=selector;
+		if(0==selector)
 		{
-			(unsigned char)( seg.maxLimit    &0xff),
-			(unsigned char)((seg.maxLimit>>8)&0xff),
-			(unsigned char)( seg.baseLinearAddr     &0xff),
-			(unsigned char)((seg.baseLinearAddr>>8) &0xff),
-			(unsigned char)((seg.baseLinearAddr>>16)&0xff),
-			(unsigned char)((seg.baseLinearAddr>>24)&0xff),
-		};
-		LoadDescriptorTableRegister(state.LDTR,32,byteData);
+			state.LDTR.linearBaseAddr=0;
+			state.LDTR.limit=0;
+		}
+		else if(0!=TI) // Pointing LDT
+		{
+			Abort("Task Switching Failure (LDT)");
+		}
+		else
+		{
+			SegmentRegister seg;
+			LoadSegmentRegister(seg,selector,mem,MODE_NATIVE); // Force to read from GDT by setting mode=MODE_NATIVE
+			const unsigned char byteData[]=
+			{
+				(unsigned char)( seg.maxLimit    &0xff),
+				(unsigned char)((seg.maxLimit>>8)&0xff),
+				(unsigned char)( seg.baseLinearAddr     &0xff),
+				(unsigned char)((seg.baseLinearAddr>>8) &0xff),
+				(unsigned char)((seg.baseLinearAddr>>16)&0xff),
+				(unsigned char)((seg.baseLinearAddr>>24)&0xff),
+			};
+			LoadDescriptorTableRegister(state.LDTR,32,byteData);
+		}
+
+		if(true==savePrevTR)
+		{
+			DebugStoreWord(mem,32,state.TR,TSS_OFFSET_BACKLINK_TO_PREV_TSS,prevTR);
+		}
+		SetFLAGSorEFLAGS(16,DebugFetchWord(32,state.TR,TSS286_FLAGS,mem));
+		state.EIP=DebugFetchWord(32,state.TR,TSS286_IP,mem);
+		SetEAX(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_AX,mem)); // TEST386 expects high-word to be FFFF.
+		SetECX(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_CX,mem));
+		SetEDX(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_DX,mem));
+		SetEBX(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_BX,mem));
+		SetESP(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_SP,mem));
+		SetEBP(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_BP,mem));
+		SetESI(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_SI,mem));
+		SetEDI(0xFFFF0000|DebugFetchWord(32,state.TR,TSS286_DI,mem));
+
+		uint16_t ES=DebugFetchWord(32,state.TR,TSS286_ES,mem);
+		uint16_t SS=DebugFetchWord(32,state.TR,TSS286_SS,mem);
+		uint16_t DS=DebugFetchWord(32,state.TR,TSS286_DS,mem);
+		uint16_t CS=DebugFetchWord(32,state.TR,TSS286_CS,mem);
+
+		// Set CS first so that the rest segment selectors can be loaded with the new CPL.
+		LoadSegmentRegister(state.CS(),CS,mem,MODE_NATIVE);
+
+		LoadSegmentRegister(state.ES(),ES,mem,MODE_NATIVE);
+		LoadSegmentRegister(state.SS(),SS,mem,MODE_NATIVE);
+		LoadSegmentRegister(state.DS(),DS,mem,MODE_NATIVE);
+		LoadSegmentRegister(state.FS(),0,mem,MODE_NATIVE);
+		LoadSegmentRegister(state.GS(),0,mem,MODE_NATIVE);
+	}
+	else if(DESCTYPE_AVAILABLE_386_TSS==newTSS.GetType() ||
+	        DESCTYPE_BUSY_386_TSS==newTSS.GetType())
+	{
+		// 4. Load Task Register
+		LoadTaskRegister(newTSS.value,mem);
+
+		// 5. Load incoming task's state.
+		//      LDT, EFLAGS, EIP, EAX, ECX, EDX, EBX, ESP, EBP, ESI,EDI, ES, CS, SS, DS, FS, GS, PDBR(=CR3)
+		InvalidateDescriptorCache();
+		auto selector=DebugFetchWord(32,state.TR,TSS_OFFSET_LDT,mem);
+		auto TI=(0!=(selector&4));
+		state.LDTR.selector=selector;
+		if(0==selector)
+		{
+			state.LDTR.linearBaseAddr=0;
+			state.LDTR.limit=0;
+		}
+		else if(0!=TI) // Pointing LDT
+		{
+			Abort("Task Switching Failure (LDT)");
+		}
+		else
+		{
+			SegmentRegister seg;
+			LoadSegmentRegister(seg,selector,mem,MODE_NATIVE); // Force to read from GDT by setting mode=MODE_NATIVE
+			const unsigned char byteData[]=
+			{
+				(unsigned char)( seg.maxLimit    &0xff),
+				(unsigned char)((seg.maxLimit>>8)&0xff),
+				(unsigned char)( seg.baseLinearAddr     &0xff),
+				(unsigned char)((seg.baseLinearAddr>>8) &0xff),
+				(unsigned char)((seg.baseLinearAddr>>16)&0xff),
+				(unsigned char)((seg.baseLinearAddr>>24)&0xff),
+			};
+			LoadDescriptorTableRegister(state.LDTR,32,byteData);
+		}
+
+		if(true==savePrevTR)
+		{
+			DebugStoreDword(mem,32,state.TR,TSS_OFFSET_BACKLINK_TO_PREV_TSS,prevTR);
+		}
+		state.EFLAGS=DebugFetchDword(32,state.TR,TSS_OFFSET_EFLAGS,mem);
+		if(0!=(state.EFLAGS&EFLAGS_VIRTUAL86))
+		{
+			std::cout << "JMPF to VM86 mode\n";
+		}
+		state.mode=state.RecalculateMode(); // May change to VM86 mode.
+
+		state.EIP=DebugFetchDword(32,state.TR,TSS_OFFSET_EIP,mem);
+		state.EAX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EAX,mem);
+		state.ECX()=DebugFetchDword(32,state.TR,TSS_OFFSET_ECX,mem);
+		state.EDX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EDX,mem);
+		state.EBX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EBX,mem);
+		state.ESP()=DebugFetchDword(32,state.TR,TSS_OFFSET_ESP,mem);
+		state.EBP()=DebugFetchDword(32,state.TR,TSS_OFFSET_EBP,mem);
+		state.ESI()=DebugFetchDword(32,state.TR,TSS_OFFSET_ESI,mem);
+		state.EDI()=DebugFetchDword(32,state.TR,TSS_OFFSET_EDI,mem);
+
+		uint16_t ES=DebugFetchWord(32,state.TR,TSS_OFFSET_ES,mem);
+		uint16_t SS=DebugFetchWord(32,state.TR,TSS_OFFSET_SS,mem);
+		uint16_t DS=DebugFetchWord(32,state.TR,TSS_OFFSET_DS,mem);
+		uint16_t FS=DebugFetchWord(32,state.TR,TSS_OFFSET_FS,mem);
+		uint16_t GS=DebugFetchWord(32,state.TR,TSS_OFFSET_GS,mem);
+		uint16_t CS=DebugFetchWord(32,state.TR,TSS_OFFSET_CS,mem);
+
+		// Set CS first so that the rest segment selectors can be loaded with the new CPL.
+		LoadSegmentRegister(state.CS(),CS,mem,state.mode);
+
+		LoadSegmentRegister(state.ES(),ES,mem,state.mode);
+		LoadSegmentRegister(state.SS(),SS,mem,state.mode);
+		LoadSegmentRegister(state.DS(),DS,mem,state.mode);
+		LoadSegmentRegister(state.FS(),FS,mem,state.mode);
+		LoadSegmentRegister(state.GS(),GS,mem,state.mode);
+		SetCR(3,DebugFetchDword(32,state.TR,TSS_OFFSET_CR3,mem),mem);
+	}
+	else
+	{
+		std::cout << cpputil::Ustox(newTSS.GetType()) << "\n";
+		Abort("Task Switching to non-TSS exception not handled yet.");
+	}
+}
+
+template <class FIDELITY>
+void i486DXFidelityLayer<FIDELITY>::MarkTaskRegisterBusy(Memory &mem,uint16_t selector,bool busy)
+{
+	if(selector&4) // TI
+	{
+		Abort("TR cannot be in the LDT. Currently not handling it.");
 	}
 
-	state.EFLAGS=DebugFetchDword(32,state.TR,TSS_OFFSET_EFLAGS,mem);
-	state.EIP=DebugFetchDword(32,state.TR,TSS_OFFSET_EIP,mem);
-	state.EAX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EAX,mem);
-	state.ECX()=DebugFetchDword(32,state.TR,TSS_OFFSET_ECX,mem);
-	state.EDX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EDX,mem);
-	state.EBX()=DebugFetchDword(32,state.TR,TSS_OFFSET_EBX,mem);
-	state.ESP()=DebugFetchDword(32,state.TR,TSS_OFFSET_ESP,mem);
-	state.EBP()=DebugFetchDword(32,state.TR,TSS_OFFSET_EBP,mem);
-	state.ESI()=DebugFetchDword(32,state.TR,TSS_OFFSET_ESI,mem);
-	state.EDI()=DebugFetchDword(32,state.TR,TSS_OFFSET_EDI,mem);
+	uint32_t addr=state.GDTR.linearBaseAddr+(selector&0xFFF8)+5; // FFF8 for clearing TI, RPL bits.  Offset 5 is type byte.
+	addr=LinearAddressToPhysicalAddressWrite(addr,mem);
+	if(true==state.exception)
+	{
+		return;
+	}
 
-	uint16_t ES=DebugFetchWord(32,state.TR,TSS_OFFSET_ES,mem);
-	uint16_t SS=DebugFetchWord(32,state.TR,TSS_OFFSET_SS,mem);
-	uint16_t DS=DebugFetchWord(32,state.TR,TSS_OFFSET_DS,mem);
-	uint16_t FS=DebugFetchWord(32,state.TR,TSS_OFFSET_FS,mem);
-	uint16_t GS=DebugFetchWord(32,state.TR,TSS_OFFSET_GS,mem);
-	uint16_t CS=DebugFetchWord(32,state.TR,TSS_OFFSET_CS,mem);
+	// Need to check GDT limit, etc.  Will do.
+	auto typeByte=mem.FetchByte(addr);
+	auto type=typeByte&0x1F;
+	if(DESCTYPE_AVAILABLE_386_TSS!=type && DESCTYPE_AVAILABLE_286_TSS!=type &&
+	   DESCTYPE_BUSY_386_TSS!=type && DESCTYPE_BUSY_286_TSS!=type)
+	{
+		RaiseException(EXCEPTION_GP,selector);
+		return;
+	}
 
-	// Set CS first so that the rest segment selectors can be loaded with the new CPL.
-	LoadSegmentRegister(state.CS(),CS,mem,MODE_NATIVE);
-
-	LoadSegmentRegister(state.ES(),ES,mem,MODE_NATIVE);
-	LoadSegmentRegister(state.SS(),SS,mem,MODE_NATIVE);
-	LoadSegmentRegister(state.DS(),DS,mem,MODE_NATIVE);
-	LoadSegmentRegister(state.FS(),FS,mem,MODE_NATIVE);
-	LoadSegmentRegister(state.GS(),GS,mem,MODE_NATIVE);
-	SetCR(3,DebugFetchDword(32,state.TR,TSS_OFFSET_CR3,mem),mem);
+	const unsigned int busyBit=2;
+	if(true==busy)
+	{
+		typeByte|=busyBit;
+	}
+	else
+	{
+		typeByte&=~busyBit;
+	}
+	mem.StoreByte(addr,typeByte);
 }
 
 template <class FIDELITY>
@@ -2051,8 +2619,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 
 	// Use the following as a pair.
 	#define SAVE_ESP_BEFORE_PUSH_POP \
-		typename FIDELITY::SavedESP savedESP; \
-		FIDELITY::SaveESP(savedESP,inst.addressSize,state.ESP());
+		auto savedESP=FIDELITY::SaveESP(inst.addressSize,state.ESP());
 
 	#define HANDLE_EXCEPTION_PUSH_POP \
 		if(true==fidelity.HandleExceptionAndRestoreESPIfAny(*this,mem,inst.numBytes,savedESP)) \
@@ -2064,8 +2631,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 
 	// Use the following as a pair.
 	#define SAVE_ESPEBP_BEFORE_ENTER \
-		typename FIDELITY::SavedESPEBP saved; \
-		FIDELITY::SaveESPEBP(saved,inst.addressSize,state.ESP(),state.EBP());
+		auto saved=FIDELITY::SaveESPEBP(inst.addressSize,state.ESP(),state.EBP());
 
 	#define HANDLE_EXCEPTION_ENTER \
 		if(true==fidelity.HandleExceptionAndRestoreESPEBPIfAny(*this,mem,inst.numBytes,saved)) \
@@ -2084,8 +2650,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 
 	// Use the following as a pair.
 	#define SAVE_ECX_BEFORE_STRINGOP \
-		typename FIDELITY::SavedECX savedECX; \
-		FIDELITY::SaveECX(savedECX,state.ECX());
+		auto savedECX=FIDELITY::SaveECX(state.ECX());
 
 	#define HANDLE_EXCEPTION_STRINGOP \
 		if(true==fidelity.HandleExceptionAndRestoreECXIfAny(*this,mem,inst.numBytes,savedECX)) \
@@ -2096,7 +2661,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 		}
 
 	#define UPDATED_SAVED_ECX_AFTER_STRINGOP \
-		FIDELITY::SaveECX(savedECX,state.ECX());
+		savedECX=FIDELITY::SaveECX(state.ECX());
 
 	#define FPU_TRAP \
 		if(true!=state.fpuState.enabled) \
@@ -3960,6 +4525,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				{
 					auto value=EvaluateOperand(mem,inst.addressSize,inst.segOverride,op1,inst.operandSize/8);
 					auto cw=value.GetAsWord();
+					HANDLE_EXCEPTION_IF_ANY;
 					clocksPassed=state.fpuState.FLDCW(*this,cw);
 				}
 				break;
@@ -4039,8 +4605,18 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				}
 				break;
 			case 2:  // FICOM m32int
+				FPU_TRAP;
+				{
+					auto value=EvaluateOperand(mem,inst.addressSize,inst.segOverride,op1,4);
+					clocksPassed=state.fpuState.FICOM_m32int(*this,value.byteData);
+				}
 				break;
 			case 3:  // FICOMP m32int
+				FPU_TRAP;
+				{
+					auto value=EvaluateOperand(mem,inst.addressSize,inst.segOverride,op1,4);
+					clocksPassed=state.fpuState.FICOMP_m32int(*this,value.byteData);
+				}
 				break;
 			case 4:  // FISUB m32int
 				FPU_TRAP;
@@ -4752,7 +5328,36 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			}
 		}
 		break;
-
+	case I486_RENUMBER_INS://     0x6D,
+		{
+			auto prefix=REPNEtoREP(inst.instPrefix);
+			if(true==REPCheck(clocksPassed,prefix,inst.addressSize))
+			{
+				clocksPassed+=(IsInRealMode() ? 17 : 10); // Protected Mode 32 if CPL>IOPL
+				if(true==fidelity.TakeIOReadException(*this,GetDX(),1,mem,inst.numBytes))
+				{
+					EIPIncrement=0;
+					break;
+				}
+				uint32_t ioRead;
+				if(16==inst.operandSize)
+				{
+					ioRead=IOIn16(io,GetDX());
+					StoreWord(mem,inst.addressSize,state.ES(),state.EDI(),ioRead);
+				}
+				else
+				{
+					ioRead=IOIn32(io,GetDX());
+					StoreDword(mem,inst.addressSize,state.ES(),state.EDI(),ioRead);
+				}
+				UpdateDIorEDIAfterStringOp(inst.addressSize,inst.operandSize);
+				if(INST_PREFIX_REP==prefix)
+				{
+					EIPIncrement=0;
+				}
+			}
+		}
+		break;
 
 	case I486_RENUMBER_IN_AL_I8://=        0xE4,
 		if(true==IsInRealMode())
@@ -4933,22 +5538,30 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 
 
 	case I486_RENUMBER_LEAVE://            0xC9,
-		clocksPassed=5;
-		if(16==GetStackAddressingSize())
 		{
-			SetSP(state.BP());
-		}
-		else
-		{
-			SetESP(state.EBP());
-		}
-		if(16==inst.operandSize)
-		{
-			SetBP(Pop16(mem));
-		}
-		else
-		{
-			SetEBP(Pop32(mem));
+			SAVE_ESP_BEFORE_PUSH_POP;
+
+			clocksPassed=5;
+			if(16==GetStackAddressingSize())
+			{
+				SetSP(state.BP());
+			}
+			else
+			{
+				SetESP(state.EBP());
+			}
+			if(16==inst.operandSize)
+			{
+				auto bp=Pop16(mem);
+				HANDLE_EXCEPTION_PUSH_POP;
+				SetBP(bp);
+			}
+			else
+			{
+				auto ebp=Pop32(mem);
+				HANDLE_EXCEPTION_PUSH_POP;
+				SetEBP(ebp);
+			}
 		}
 		break;
 
@@ -4967,6 +5580,8 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 		else
 		{
 			RaiseException(EXCEPTION_GP,0);
+			HandleException(false,mem,inst.numBytes);
+			EIPIncrement=0;
 		}
 		clocksPassed=4;
 		break;
@@ -5395,11 +6010,13 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 		break;
 	case I486_RENUMBER_INT://        0xCD,
 		clocksPassed=(IsInRealMode() ? 30 : 44);
-		// if(true==fidelity.IOPLExceptionInVM86Mode(*this,EXCEPTION_GP,mem,inst.numBytes))
-		// {
-		// 	EIPIncrement=0;
-		// 	break;
-		// }
+		if(true==fidelity.IOPLExceptionInVM86Mode(*this,EXCEPTION_GP,mem,inst.numBytes))
+		{
+			// 80386 manual tells: #GP(0) fault if IOPL is less than 3, for INT only, to permit emulation; Interrupt 3 (0CCH) generates Interrupt 3; INTO generates Interrupt 4 if the overflow flag equals 1 
+			// So I presume this check is unnecessary for INT3 and INTO.
+			EIPIncrement=0;
+			break;
+		}
 		Interrupt(inst.EvalUimm8(),mem,2,2,true);
 		EIPIncrement=0;
 		break;
@@ -5874,6 +6491,10 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			   op2.offset;
 			if(OPER_REG32==op1.operandType)
 			{
+				if(16==inst.addressSize)
+				{
+					offset&=0xFFFF;
+				}
 				state.reg32()[op1.reg-REG_EAX]=offset;
 			}
 			else if(OPER_REG16==op1.operandType)
@@ -6101,7 +6722,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			clocksPassed=(OPER_ADDR==op1.operandType ? 3 : 2);
 			{
 				OperandValue value;
-				value.MakeWord(state.GetCR(0));
+				value.MakeDword(state.GetCR(0));
 				StoreOperandValue(op1,mem,inst.addressSize,inst.segOverride,value);
 			}
 			break;
@@ -6948,7 +7569,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 		}
 		{
 			SAVE_ESP_BEFORE_PUSH_POP;
-			Push(mem,inst.operandSize,state.EFLAGS);
+			Push(mem,inst.operandSize,state.EFLAGS&~(EFLAGS_RESUME|EFLAGS_VIRTUAL86));
 			HANDLE_EXCEPTION_PUSH_POP;
 		}
 		break;
@@ -7384,8 +8005,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			break;
 		}
 		{
-			typename FIDELITY::EFLAGS ioplBits;
-			FIDELITY::SaveEFLAGS(ioplBits,*this);
+			auto ioplBits=FIDELITY::SaveEFLAGS(*this);
 
 			// VM and RF flags must be preserved.
 			SAVE_ESP_BEFORE_PUSH_POP;
@@ -7443,8 +8063,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				SetIPorEIP(inst.operandSize,eip);
 				auto segRegValue=cs;
 
-				typename FIDELITY::EFLAGS ioplBits;
-				FIDELITY::SaveEFLAGS(ioplBits,*this);
+				auto ioplBits=FIDELITY::SaveEFLAGS(*this);
 				SetFLAGSorEFLAGS(inst.operandSize,eflags);
 				FIDELITY::RestoreIOPLBits(*this,ioplBits);
 				FIDELITY::RestoreIF(*this,ioplBits);
@@ -7479,13 +8098,42 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 					break;
 				}
 
+
 				// I still do not understand the logic of task return.
 				// But, none of TownsOS, Windows 3.1, Windows 95, and Linux for TOWNS seems to be using it anyway.
-				// if(true==fidelity.IsTaskReturn(*this))
-				// {
-				// 	Abort("Task Return Not Supported");
-				// 	break;
-				// }
+				if(true==FIDELITY::CheckNestedTask(*this))
+				{
+					auto prevTR=state.TR.value;
+					auto prevCPL=state.CS().DPL;
+					auto nextTR=DebugFetchWord(32,state.TR,TSS_OFFSET_BACKLINK_TO_PREV_TSS,mem);
+
+					std::cout << "Task Return From=" << cpputil::Ustox(prevTR) << " To=" << cpputil::Ustox(nextTR) << "\n";
+
+					SegmentRegister newTSS;
+					state.CS().DPL=0;
+					LoadSegmentRegister(newTSS,nextTR,mem);
+					state.CS().DPL=prevCPL;
+
+					state.EFLAGS&=~EFLAGS_NESTED; // Clear NESTED flag before saving the state.
+					SaveStateToTSS(mem,inst.numBytes,state.EFLAGS,state.CS().value);
+
+					// I thought the current task should remain busy, but apparently needs to be made available.
+					MarkTaskRegisterBusy(mem,prevTR,false);
+
+					SwitchTaskToTSS(mem,newTSS,false,0);
+
+					// New TSS needs to be BUSY.  Therefore, do not re-mark it as BUSY.
+					// NESTED flag depends on what's in the TSS.
+
+					auto CR0=state.GetCR(0);
+					CR0|=CR0_TASK_SWITCHED;
+					SetCR(0,CR0);
+
+					EIPIncrement=0;
+
+					break;
+				}
+
 
 				auto prevVMFlag=state.EFLAGS&EFLAGS_VIRTUAL86;
 				bool IRET_TO_VM86=false;
@@ -7496,8 +8144,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				SetIPorEIP(inst.operandSize,eip);
 				auto segRegValue=cs;
 
-				typename FIDELITY::EFLAGS ioplBits;
-				FIDELITY::SaveEFLAGS(ioplBits,*this);
+				auto ioplBits=FIDELITY::SaveEFLAGS(*this);
 				SetFLAGSorEFLAGS(inst.operandSize,eflags);
 
 				// The pseudo code in i486 Programmer's Reference Manual suggests that IRET in VM86 mode will cause #GP(0).
@@ -7518,12 +8165,6 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				FIDELITY::RestoreIOPLBits(*this,ioplBits);
 				FIDELITY::RestoreIF(*this,ioplBits);
 
-				// if(state.EFLAGS&EFLAGS_NESTED)
-				//{
-				//	TaskReturn
-				//	Not supported, but in this case, restoration of prevVMFlag above may not be correct.
-				//}
-				// else
 				if(0==prevVMFlag && 0!=(state.EFLAGS&EFLAGS_VIRTUAL86)) // Stack-Return-To-V86
 				{
 					uint32_t TempESP,TempSS,ES,DS,FS,GS;
@@ -7548,7 +8189,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				}
 
 				// IRET to Virtual86 mode requires EFLAGS be loaded before the segment register.
-				auto CPL=state.CS().DPL;
+				auto prevCPL=state.CS().DPL;
 				LoadSegmentRegister(state.CS(),segRegValue,mem);
 				EIPIncrement=0;
 				if(true==enableCallStack)
@@ -7556,11 +8197,14 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 					PopCallStack(state.CS().value,state.EIP);
 				}
 
-				if(state.CS().DPL>CPL && 0==(state.EFLAGS&EFLAGS_VIRTUAL86))
+				if(state.CS().DPL>prevCPL && 0==(state.EFLAGS&EFLAGS_VIRTUAL86))
 				{
-					// IRET to outer level
 					uint32_t TempESP,TempSS;
+
+					std::swap(prevCPL,state.CS().DPL); // SS may be inaccessible from CPL=3.  Restore previous CPL.
 					Pop(TempESP,TempSS,mem,inst.operandSize);
+					std::swap(state.CS().DPL,prevCPL); // Back to the new CPL.
+
 					LoadSegmentRegister(state.SS(),TempSS,mem);
 					state.ESP()=TempESP;
 
@@ -7616,6 +8260,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				clocksPassed=18;
 			}
 			auto prevDPL=state.CS().DPL;
+			auto prevCSEIP=FIDELITY::SaveCSEIP(*this);
 
 			uint32_t eip,cs;
 			SAVE_ESP_BEFORE_PUSH_POP;
@@ -7624,6 +8269,13 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 
 			LoadSegmentRegister(state.CS(),cs,mem);
 			HANDLE_EXCEPTION_PUSH_POP;
+
+			if(true==FIDELITY::CheckJumpToHigherPrivilege(state.CS(),prevCSEIP))
+			{
+				FIDELITY::RestoreCSEIP(*this,prevCSEIP);
+				RaiseException(EXCEPTION_GP,cs);
+				HANDLE_EXCEPTION_PUSH_POP;
+			}
 
 			SetIPorEIP(inst.operandSize,eip);
 			EIPIncrement=0;
@@ -7666,6 +8318,7 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 				clocksPassed=17;
 			}
 			auto prevDPL=state.CS().DPL;
+			auto prevCSEIP=FIDELITY::SaveCSEIP(*this);
 
 			SAVE_ESP_BEFORE_PUSH_POP;
 			auto EIP=Pop(mem,inst.operandSize);
@@ -7677,6 +8330,13 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			LoadSegmentRegister(state.CS(),cs,mem);
 			HANDLE_EXCEPTION_PUSH_POP;
 
+			if(true==FIDELITY::CheckJumpToHigherPrivilege(state.CS(),prevCSEIP))
+			{
+				FIDELITY::RestoreCSEIP(*this,prevCSEIP);
+				RaiseException(EXCEPTION_GP,cs);
+				HANDLE_EXCEPTION_PUSH_POP;
+			}
+
 			SetIPorEIP(inst.operandSize,EIP);
 			EIPIncrement=0;
 			if(enableCallStack)
@@ -7685,12 +8345,13 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			}
 			if(true!=fidelity.CheckRETFtoOuterLevel(*this,mem,inst.operandSize,prevDPL,inst.EvalUimm16()))
 			{
-				// true means IMM16 is already consumed in CheckRETFtoOuterLevel.
+				// true means IMM16 is already consumed in CheckRETFtoOuterLevel.  That's what I thought, but maybe not.
 				state.ESP()+=inst.EvalUimm16(); // Do I need to take &0xffff if address mode is 16? 
 			}
 			else
 			{
-				std::cout << "RETF to lower level with 0<IMM16." << std::endl;
+				std::cout << "RETF to lower level with IMM16=" << inst.EvalUimm16() << std::endl;
+				state.ESP()+=inst.EvalUimm16(); // Do I need to take &0xffff if address mode is 16? 
 			}
 
 			if(16==state.CS().addressSize)
@@ -8087,7 +8748,20 @@ unsigned int i486DXFidelityLayer<FIDELITY>::RunOneInstruction(Memory &mem,InOut 
 			{
 				// I need to correct implementation of task behavior to support EMM386.EXE
 				auto value=EvaluateOperand(mem,inst.addressSize,inst.segOverride,op1,inst.operandSize/8);
-				LoadTaskRegister(value.GetAsDword(),mem);
+				auto selector=value.GetAsDword();
+
+				FIDELITY::MarkTaskRegisterBusy(*this,mem,selector,true);
+				if(true==fidelity.HandleExceptionIfAny(*this,mem,inst.numBytes))
+				{
+					EIPIncrement=0;
+					break;
+				}
+
+				i486DXCommon::LoadSegmentRegisterTemplate<i486DXCommon,FIDELITY> loader;
+				loader.InvalidateDescriptorCache(*this,selector);
+
+				LoadTaskRegister(selector,mem);
+
 				clocksPassed=20;
 			}
 			break;

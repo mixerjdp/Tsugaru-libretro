@@ -18,7 +18,6 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 
 #include "townsargv.h"
 #include "cpputil.h"
-#include "discimg.h"
 #include "diskimg.h"
 #include "d77.h"
 
@@ -45,6 +44,8 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "  Maximize the window on start up" << std::endl;
 	std::cout << "-FULLSCREEN" << std::endl;
 	std::cout << "  Fullscreen on start up" << std::endl;
+	std::cout << "-WINSIZE wid hei" << std::endl;
+	std::cout << "  Specify window size." << std::endl;
 	std::cout << "-HIGHRES" << std::endl;
 	std::cout << "  Enable High-Resolution CRTC (default)" << std::endl;
 	std::cout << "-NOHIGHRES" << std::endl;
@@ -234,7 +235,7 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "-HD0 image-file-name" << std::endl;
 	std::cout << "  Hard-disk image file name.  Can be -HDx (0<=x<=6)" << std::endl;
 	std::cout << "-SCSICD0 image-file-name" << std::endl;
-	std::cout << "  SCSI CD-ROM image file name.  ISO, CUE, or CHD. Can be -SCSICDx (0<=x<=6)" << std::endl;
+	std::cout << "  SCSI CD-ROM image file name. ISO, CUE, or CHD. Can be -SCSICDx (0<=x<=6)" << std::endl;
 	std::cout << "-SYM filename" << std::endl;
 	std::cout << "  Specify symbol file name." << std::endl;
 	std::cout << "-EVTLOG filename" << std::endl;
@@ -334,6 +335,20 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "  Add a command to run in Free TOWNS OS (Tsugaru OS).\n";
 	std::cout << "  The command will be executed when YAMAND.COM is ready to accept a command.\n";
 
+	std::cout << "-REX3586\n";
+	std::cout << "  Enable NAT for Ratoc REX3586 LAN card.  By default the LAN is disabled.\n";
+	std::cout << "-NOREX3586\n";
+	std::cout << "  Disable NAT for Ratoc REX3586 LAN card enabled by earlier argument.\n";
+	std::cout << "-PORTFWD VMPort HostPort\n";
+	std::cout << "  Enable Port Forwarding VMPort is the port Tsugaru sees.\n";
+	std::cout << "  And HostPort is the port open to outside.\n";
+	std::cout << "  You may also have to open port in the Firewall of the host OS.\n";
+
+	std::cout << "-FMT3631\n";
+	std::cout << "  Enable FMT-3631 Windows Accelerator Card.\n";
+	std::cout << "-NOFMT3631\n";
+	std::cout << "  Disable FMT-3631 Windows Accelerator Card.\n";
+
 	std::cout << "-VERBOSE\n";
 	std::cout << "  Additional console output.\n";
 }
@@ -365,8 +380,7 @@ void TownsARGV::PrintApplicationList(void) const
 	std::cout << "ULTIMAUNDERWORLD" << std::endl;
 	std::cout << "  Mouse integration." << std::endl;
 	std::cout << "QODGAIDEN" << std::endl;
-	std::cout << "  Queen of Duellist Gaiden / Gaiden Alpha." << std::endl;
-	std::cout << "  CD-ROM timing compatibility quirk." << std::endl;
+	std::cout << "  Queen of Duellist Gaiden / Gaiden Alpha CD-ROM timing compatibility." << std::endl;
 }
 
 void TownsARGV::CopyFile(std::string src,std::string dst)
@@ -500,6 +514,13 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 		{
 			windowModeOnStartUp=WINDOW_FULLSCREEN;
 		}
+		else if("-WINSIZE"==ARG && i+2<argc)
+		{
+			windowModeOnStartUp=WINDOW_SPECIFY_SIZE;
+			windowSize[0]=std::max(16,cpputil::Atoi(argv[i+1]));
+			windowSize[1]=std::max(16,cpputil::Atoi(argv[i+2]));
+			i+=2;
+		}
 		else if("-PAUSE"==ARG)
 		{
 			autoStart=false;
@@ -563,6 +584,21 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 				{
 					powerOffAtPassCount=cpputil::Atoi(powerOffAt.c_str()+j+1);
 					powerOffAt.resize(j);
+					break;
+				}
+			}
+			++i;
+		}
+		else if("-POWEROFFONIOW"==ARG && i+1<argc)
+		{
+			powerOffOnIOW=true;
+			powerOffOnIOWPort=cpputil::Xtoi(argv[i+1]);
+			powerOffOnIOWValue=~0;
+			for(size_t j=0; 0!=argv[i+1][j]; ++j)
+			{
+				if('@'==argv[i+1][j])
+				{
+					powerOffOnIOWValue=cpputil::Xtoi(argv[i+1]+j+1);
 					break;
 				}
 			}
@@ -724,7 +760,7 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 			fileNameAlias[LABEL]=argv[i+2];
 			i+=2;
 		}
-		else if("-SPCIALPATH"==ARG && i+2<argc)
+		else if("-SPECIALPATH"==ARG && i+2<argc)
 		{
 			std::pair <std::string,std::string> pair;
 			pair.first=argv[i+1];
@@ -1180,6 +1216,47 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 				return false;
 			}
 			++i;
+		}
+		else if("-REX3586"==ARG)
+		{
+			enableLAN=true;
+			std::cout << "!!! CAUTION !!!\n";
+			std::cout << "Any operating systems run on FM TOWNS does not have the security features that meet\n";
+			std::cout << "today's standard.  Any network transaction can be stolen by anyone monitoring the\n";
+			std::cout << "packets.\n";
+			std::cout << "ABSOLUTELY DO NOT TRANSMIT SENSITIVE INFORMATION over the network.\n";
+			std::cout << "It is highly recommended to turn off TGDRV when using LAN feature of Tsugaru.\n";
+			std::cout << "LAN is highly experimental at this point.  LAN status is not state-saved.\n";
+		}
+		else if("-NOREX3586"==ARG)
+		{
+			enableLAN=false;
+		}
+		else if("-FMT3631"==ARG)
+		{
+			fmt3631=true;
+			fmt3632=false;
+		}
+		else if("-NOFMT3631"==ARG)
+		{
+			fmt3631=false;
+		}
+		else if("-FMT3632"==ARG)
+		{
+			fmt3631=false;
+			fmt3632=true;
+		}
+		else if("-NOFMT3632"==ARG)
+		{
+			fmt3632=false;
+		}
+		else if("-PORTFWD"==ARG && i+2<argc)
+		{
+			std::pair <uint16_t,uint16_t> fwd;
+			fwd.first=cpputil::Atoi(argv[i+1]);
+			fwd.second=cpputil::Atoi(argv[i+2]);
+			portForwarding.push_back(fwd);
+			i+=2;
 		}
 		else if("-CONSCMD"==ARG && i+1<argc)
 		{

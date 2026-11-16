@@ -127,6 +127,7 @@ bool TownsThread::VMMainLoopStep(
 				outside_world->differentialMouseIntegration=saveDiffMouseFlag; // Restore differential mouse integration.
 
 				outside_world->DevicePolling(*townsPtr);
+				townsPtr->rex3586.Polling();
 				if(true==outside_world->PauseKeyPressed())
 				{
 					runMode.store(RUNMODE_RUN);
@@ -249,6 +250,7 @@ bool TownsThread::VMMainLoopStep(
 				window->Communicate(outside_world);
 				outside_world->DevicePolling(*townsPtr);
 				sound->Polling();
+				townsPtr->rex3586.Polling();
 				townsPtr->state.nextDevicePollingTime=townsPtr->state.townsTime+FMTownsCommon::DEVICE_POLLING_INTERVAL;
 				if(true==townsPtr->CheckDebugBreak())
 				{

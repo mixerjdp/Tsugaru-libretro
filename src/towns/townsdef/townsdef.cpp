@@ -851,13 +851,17 @@ unsigned int TownsStrToApp(std::string str)
 	{
 		return TOWNS_APPSPECIFIC_ASUKA120;
 	}
-		if("DRAKKEN"==str)
+	if("DRAKKEN"==str)
 	{
 		return TOWNS_APPSPECIFIC_DRAKKEN;
 	}
 	if("GAIDEN"==str || "QODGAIDEN"==str || "QUEENOFDUELLISTGAIDEN"==str || "QUEENOFDUELLIST_GAIDEN"==str)
 	{
 		return TOWNS_APPSPECIFIC_QODGAIDEN;
+	}
+	if("HABITAT"==str)
+	{
+		return TOWNS_APPSPECIFIC_HABITAT;
 	}
 	return TOWNS_APPSPECIFIC_NONE;
 }
@@ -907,10 +911,12 @@ std::string TownsAppToStr(unsigned int i)
 		return "ROCKETRANGER";
 	case TOWNS_APPSPECIFIC_ASUKA120:
 		return "ASUKA120";
-		case TOWNS_APPSPECIFIC_DRAKKEN:
+	case TOWNS_APPSPECIFIC_DRAKKEN:
 		return "DRAKKEN";
 	case TOWNS_APPSPECIFIC_QODGAIDEN:
 		return "QODGAIDEN";
+	case TOWNS_APPSPECIFIC_HABITAT:
+		return "HABITAT";
 	}
 }
 
