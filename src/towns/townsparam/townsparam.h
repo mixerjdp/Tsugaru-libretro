@@ -20,7 +20,8 @@ public:
 	{
 		WINDOW_NORMAL,
 		WINDOW_MAXIMIZE,
-		WINDOW_FULLSCREEN
+		WINDOW_FULLSCREEN,
+		WINDOW_SPECIFY_SIZE,
 	};
 
 	enum
@@ -81,6 +82,8 @@ public:
 
 	bool enableLAN=false;
 	std::vector <std::pair <uint16_t,uint16_t> > portForwarding;
+
+	bool fmt3631=false,fmt3632=false;
 
 	// If not "", VM starts from this saved state.
 	std::string startUpStateFName;
@@ -187,9 +190,9 @@ public:
 	enum
 	{
 		DEFAULT_MOUSE_MINX=0,
-		DEFAULT_MOUSE_MAXX=1023,
+		DEFAULT_MOUSE_MAXX=1279,
 		DEFAULT_MOUSE_MINY=0,
-		DEFAULT_MOUSE_MAXY=767,
+		DEFAULT_MOUSE_MAXY=1023,
 	};
 	int mouseMinX=DEFAULT_MOUSE_MINX;
 	int mouseMaxX=DEFAULT_MOUSE_MAXX;
@@ -207,6 +210,7 @@ public:
 	unsigned int scaling=100;
 	bool autoScaling=false,maintainAspect=true;
 	unsigned int windowModeOnStartUp=WINDOW_NORMAL;
+	unsigned int windowSize[2]={640,480}; // Valid only with WINDOW_SPECIFY_SIZE.
 
 	std::string quickScrnShotDir;
 	std::string quickStateSaveFName;

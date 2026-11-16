@@ -44,6 +44,8 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "  Maximize the window on start up" << std::endl;
 	std::cout << "-FULLSCREEN" << std::endl;
 	std::cout << "  Fullscreen on start up" << std::endl;
+	std::cout << "-WINSIZE wid hei" << std::endl;
+	std::cout << "  Specify window size." << std::endl;
 	std::cout << "-HIGHRES" << std::endl;
 	std::cout << "  Enable High-Resolution CRTC (default)" << std::endl;
 	std::cout << "-NOHIGHRES" << std::endl;
@@ -342,6 +344,11 @@ void TownsARGV::PrintHelp(void) const
 	std::cout << "  And HostPort is the port open to outside.\n";
 	std::cout << "  You may also have to open port in the Firewall of the host OS.\n";
 
+	std::cout << "-FMT3631\n";
+	std::cout << "  Enable FMT-3631 Windows Accelerator Card.\n";
+	std::cout << "-NOFMT3631\n";
+	std::cout << "  Disable FMT-3631 Windows Accelerator Card.\n";
+
 	std::cout << "-VERBOSE\n";
 	std::cout << "  Additional console output.\n";
 }
@@ -506,6 +513,13 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 		else if("-FULLSCREEN"==ARG)
 		{
 			windowModeOnStartUp=WINDOW_FULLSCREEN;
+		}
+		else if("-WINSIZE"==ARG && i+2<argc)
+		{
+			windowModeOnStartUp=WINDOW_SPECIFY_SIZE;
+			windowSize[0]=std::max(16,cpputil::Atoi(argv[i+1]));
+			windowSize[1]=std::max(16,cpputil::Atoi(argv[i+2]));
+			i+=2;
 		}
 		else if("-PAUSE"==ARG)
 		{
@@ -1217,6 +1231,24 @@ bool TownsARGV::AnalyzeCommandParameter(int argc,char *argv[])
 		else if("-NOREX3586"==ARG)
 		{
 			enableLAN=false;
+		}
+		else if("-FMT3631"==ARG)
+		{
+			fmt3631=true;
+			fmt3632=false;
+		}
+		else if("-NOFMT3631"==ARG)
+		{
+			fmt3631=false;
+		}
+		else if("-FMT3632"==ARG)
+		{
+			fmt3631=false;
+			fmt3632=true;
+		}
+		else if("-NOFMT3632"==ARG)
+		{
+			fmt3632=false;
 		}
 		else if("-PORTFWD"==ARG && i+2<argc)
 		{

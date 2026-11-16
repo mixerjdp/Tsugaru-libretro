@@ -859,6 +859,10 @@ unsigned int TownsStrToApp(std::string str)
 	{
 		return TOWNS_APPSPECIFIC_QODGAIDEN;
 	}
+	if("HABITAT"==str)
+	{
+		return TOWNS_APPSPECIFIC_HABITAT;
+	}
 	return TOWNS_APPSPECIFIC_NONE;
 }
 std::string TownsAppToStr(unsigned int i)
@@ -911,6 +915,8 @@ std::string TownsAppToStr(unsigned int i)
 		return "DRAKKEN";
 	case TOWNS_APPSPECIFIC_QODGAIDEN:
 		return "QODGAIDEN";
+	case TOWNS_APPSPECIFIC_HABITAT:
+		return "HABITAT";
 	}
 }
 

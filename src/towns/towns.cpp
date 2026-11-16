@@ -435,6 +435,8 @@ void FMTownsCommon::State::PowerOn(void)
 	windowInterface->maintainAspect=argv.maintainAspect;
 	windowInterface->windowShift=argv.windowShift;
 	windowInterface->windowModeOnStartUp=argv.windowModeOnStartUp;
+	windowInterface->windowSizeOnStartUp[0]=argv.windowSize[0];
+	windowInterface->windowSizeOnStartUp[1]=argv.windowSize[1];
 
 	outside_world->mouseByFlightstickAvailable=argv.mouseByFlightstickAvailable;
 	outside_world->cyberStickAssignment=argv.cyberStickAssignment;
@@ -506,12 +508,26 @@ void FMTownsCommon::State::PowerOn(void)
 
 	if(true==argv.enableLAN)
 	{
-		towns.rex3586.var.enabled=true;
+		towns.rex3586.state.enabled=true;
 		towns.rex3586.StartRealNetwork();
 		for(auto fwd : argv.portForwarding)
 		{
 			towns.rex3586.net.RequestPortForwarding(towns.rex3586.realNet,fwd.first,fwd.second);
 		}
+	}
+
+	if(true==argv.fmt3631 && true==argv.fmt3632)
+	{
+		std::cout << "Cannot enable FMT-3631 and FMT-3632 at the same time.\n";
+		return false;
+	}
+	if(true==argv.fmt3631)
+	{
+		towns.fmt3631.EnableAsFMT3631();
+	}
+	if(true==argv.fmt3632)
+	{
+		towns.fmt3631.EnableAsFMT3632();
 	}
 
 	return result;
@@ -630,7 +646,8 @@ FMTownsCommon::FMTownsCommon() :
 	debugger(this),
 	physMem(this,&mem,&sound.state.rf5c68),
 	keyboard(this,&pic),
-	crtc(this,&sprite),
+	crtc(this,&sprite,&fmt3631),
+	fmt3631(this),
 	sprite(this,&physMem),
 	pic(this),
 	dmac(this),
@@ -683,6 +700,7 @@ FMTownsCommon::FMTownsCommon() :
 	allDevices.push_back(&tgdrv);
 	allDevices.push_back(&highResPCM);
 	allDevices.push_back(&rex3586);
+	allDevices.push_back(&fmt3631);
 	VMBase::CacheDeviceIndex();
 
 	physMem.SetMainRAMSize(4*1024*1024);
@@ -1011,6 +1029,11 @@ FMTownsCommon::FMTownsCommon() :
 	io.AddDevice(&rex3586,TOWNSIO_LAN_REX3586_ALT_TRCV_STATUS); //	0x710F,
 	io.AddDevice(&rex3586,TOWNSIO_LAN_REX3586_ALT_ROM); // 			0x7110
 
+	io.AddDevice(&fmt3631,TOWNSIO_FMT_3631_PRESENCE_CHECK); //      0x1100
+	io.AddDevice(&fmt3631,TOWNSIO_FMT_3632_1);              //      0x1101
+	io.AddDevice(&fmt3631,TOWNSIO_FMT_3632_2);              //      0x9100
+	io.AddDevice(&fmt3631,TOWNSIO_FMT_3632_3);              //      0x9104
+
 	baseClassReady=true;
 }
 
@@ -1248,7 +1271,6 @@ void FMTownsCommon::ProcessSound(Outside_World *outside_world)
 
 		unsigned int excType,excCode;
 		state.MOS_work_linearAddr=cpu.state.GS().baseLinearAddr+cpu.GetEDI();
-		state.MOS_work_physicalAddr=cpu.DebugLinearAddressToPhysicalAddress(excType,excCode,state.MOS_work_linearAddr,mem);
 
 		i486DXCommon::SegmentRegister CS;
 		cpu.DebugLoadSegmentRegister(CS,0x110,mem,i486DXCommon::MODE_NATIVE);
@@ -1261,12 +1283,51 @@ void FMTownsCommon::ProcessSound(Outside_World *outside_world)
 
 		std::cout << "Identified TBIOS as: " << TBIOSIDENTtoString(state.tbiosVersion) << std::endl;
 
+		// Need TBIOS Version to get offset of mouse XY.
+		{
+			auto XYOffset=GetMouseXYOffsetInMOSWork(state.tbiosVersion);
+			uint32_t linear=state.MOS_work_linearAddr+XYOffset;
+			state.MOS_work_physicalAddr=cpu.DebugLinearAddressToPhysicalAddress(excType,excCode,linear,mem);
+			state.MOS_work_physicalAddr-=XYOffset;
+			// Make it base for getting mouse XY coordinates.
+			// Why not storing MOS_work_XY_address instead of MOS_work_physicalAddr?
+			// If I do so, some state-save data becomes unusable.
+			// I can store both MOS_work_physicalAddr and MOS_work_XY_address, but well essentially it is exclusively used for
+			// getting mouse coordinate.
+		}
+
 		// It's a good time for some patches.
 		switch(state.appSpecificSetting)
 		{
 		case TOWNS_APPSPECIFIC_DAIKOUKAIJIDAI:
 			Daikoukai_ApplyPatchesCacheAddr();
 			break;
+		}
+	}
+	else if(1==cpu.GetAH())
+	{
+		if(TownsEventLog::MODE_RECORDING==eventLog.mode || TownsEventLog::MODE_PLAYBACK==eventLog.mode)
+		{
+			eventLog.LogMouseEnd(state.townsTime);
+		}
+		std::cout << "Mouse BIOS stopped." << std::endl;
+		state.mouseBIOSActive=false;
+		state.tbiosVersion=TBIOS_UNKNOWN;
+	}
+	else if(0x02==cpu.GetAH()) // MOS_disp
+	{
+		if(TOWNS_APPSPECIFIC_HABITAT==state.appSpecificSetting)
+		{
+			// Fujitsu Habitat apparently is not using the Mouse BIOS to draw cursor on page 1.
+			// Instead, I can check if BIOS cursor is on or off to see on which page the cursor is.
+			if(cpu.GetAL()==1) // Show: Means cursor is on Page 0.
+			{
+				state.mouseDisplayPage=0;
+			}
+			else // Hide: Means the non-BIOS cursor is on Page 1.
+			{
+				state.mouseDisplayPage=1;
+			}
 		}
 	}
 	else if(0x04==cpu.GetAH()) // Set Position
@@ -1307,16 +1368,6 @@ void FMTownsCommon::ProcessSound(Outside_World *outside_world)
 			Daikoukai2_CaptureFlags();
 		}
 	}
-	else if(1==cpu.GetAH())
-	{
-		if(TownsEventLog::MODE_RECORDING==eventLog.mode || TownsEventLog::MODE_PLAYBACK==eventLog.mode)
-		{
-			eventLog.LogMouseEnd(state.townsTime);
-		}
-		std::cout << "Mouse BIOS stopped." << std::endl;
-		state.mouseBIOSActive=false;
-		state.tbiosVersion=TBIOS_UNKNOWN;
-	}
 }
 
 /* virtual */ void FMTownsCommon::InterceptINT21H(unsigned int AX,const std::string fName)
@@ -1343,6 +1394,11 @@ void FMTownsCommon::RunFastDevicePollingInternal(void)
 	state.nextFastDevicePollingTime=state.townsTime+FAST_DEVICE_POLLING_INTERVAL;
 }
 
+void FMTownsCommon::PreponeNextFastDevicePollingTime(int64_t timeInNanosec)
+{
+	state.nextFastDevicePollingTime=std::min<int64_t>(state.nextFastDevicePollingTime,timeInNanosec);
+}
+
 void FMTownsCommon::SetUpVRAMAccess(bool breakOnRead,bool breakOnWrite)
 {
 	physMem.SetUpVRAMAccess(TownsTypeToCPUType(townsType),breakOnRead,breakOnWrite);
@@ -1355,7 +1411,7 @@ bool FMTownsCommon::FASTModeLamp(void) const
 
 void FMTownsCommon::SetMainRAMSize(long long int size)
 {
-	uint64_t RAMEnd=0x7FFFFFFF;
+	uint64_t RAMEnd=TOWNSADDR_POSSIBLE_MAINRAM_END;
 	if(TOWNSTYPE_MARTY==townsType)
 	{
 		size=std::min<uint64_t>(size,TOWNSADDR_MARTY_OSROM_BASE);
@@ -1376,7 +1432,7 @@ void FMTownsCommon::ForceRender(class TownsRender &render,class Outside_World &w
 {
 	render.Prepare(crtc);
 	render.damperWireLine=var.damperWireLine;
-	render.BuildImage(physMem.state.VRAM,crtc.GetPalette(),crtc.chaseHQPalette);
+	render.BuildImage(GetUsingVRAM(),crtc.GetPalette(),crtc.chaseHQPalette);
 	if(true==world.ImageNeedsFlip())
 	{
 		render.FlipUpsideDown();
@@ -1387,6 +1443,18 @@ void FMTownsCommon::ForceRender(class TownsRender &render,class Outside_World &w
 	windowInterface.UpdateImage(img);
 }
 
+const uint8_t *FMTownsCommon::GetUsingVRAM(void) const
+{
+	if(true==fmt3631.IsEnabled())
+	{
+		return fmt3631.state.vram.data();
+	}
+	else
+	{
+		return physMem.state.VRAM;
+	}
+}
+
 void FMTownsCommon::RenderQuiet(class TownsRender &render,bool layer0,bool layer1)
 {
 	render.Prepare(crtc);
@@ -1395,13 +1463,13 @@ void FMTownsCommon::RenderQuiet(class TownsRender &render,bool layer0,bool layer
 	auto palette=crtc.GetPalette();
 	ApplicationSpecificScreenshotOverride(render,palette);
 
-	render.BuildImage(physMem.state.VRAM,palette,crtc.chaseHQPalette);
+	render.BuildImage(GetUsingVRAM(),palette,crtc.chaseHQPalette);
 }
 
 void FMTownsCommon::RenderEntireVRAMLayerQuiet(class TownsRender &render,unsigned int layer)
 {
 	render.PrepareEntireVRAMLayer(crtc,layer);
-	render.BuildImage(physMem.state.VRAM,crtc.GetPalette(),crtc.chaseHQPalette);
+	render.BuildImage(GetUsingVRAM(),crtc.GetPalette(),crtc.chaseHQPalette);
 }
 
 bool FMTownsCommon::GetEleVolCDLeftEN(void) const

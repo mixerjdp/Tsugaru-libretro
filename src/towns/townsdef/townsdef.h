@@ -26,6 +26,8 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 	const uint64_t PER_SECOND=1000000000;  // Unit: Nano Seconds
 	const uint64_t TOWNS_RENDERING_FREQUENCY=PER_SECOND/60;
 
+	const uint32_t TOWNS_MAX_VRAM_SIZE =4*1024*1024; // 2MB if FMT-3631 is in charge.  4MB FMT-3632.
+
 	const uint32_t TOWNS_VRAM_SIZE     =1024*1024;
 	const uint32_t TOWNS_MIDRES_VRAM_SIZE=512*1024;
 	const uint32_t TOWNS_CMOS_SIZE     =8192;
@@ -147,6 +149,18 @@ enum
 #define TOWNSADDR_SYSROM_MAP_END         0x100000
 #define TOWNSADDR_SYSROM_MAP_SIZE          0x8000
 #define TOWNSADDR_SYSROM_MAP_OFFSET_DIFFERENCE ((256-32)*1024)   // SYSROM 256KB.  Last 32KB is mapped to 0xF8000 to 0xFFFFF.
+
+#define TOWNSADDR_POSSIBLE_MAINRAM_END 0x45FFFFFF
+
+#define TOWNSADDR_FMT3631_BASE         0x46000000
+#define TOWNSADDR_FMT3631_CONTROL      0x46100000
+#define TOWNSADDR_FMT3631_VRAM         0x46200000 // Power 9100 datasheet suggests direct VRAM access may start 46800000h, but Linux source tells 46200000h
+#define TOWNSADDR_FMT3631_END          0x46400000
+#define TOWNSADDR_FMT3631_AND          0x003FFFFF
+
+#define TOWNSADDR_FMT3632_BASE        0x8A000000
+#define TOWNSADDR_FMT3632_VRAM        0x8A800000
+#define TOWNSADDR_FMT3632_END         0x8AC00000
 
 #define TOWNSADDR_VRAM0_BASE           0x80000000
 #define TOWNSADDR_VRAM0_END            0x80080000
@@ -567,6 +581,16 @@ enum
 	// Probably <<
 
 
+	TOWNSIO_FMT_3631_PRESENCE_CHECK=       0x1100,
+	// FMT-3631 returns 60H on this I/O only if the straight-cable from on-board Video Out to FMT-3631 RGB-in is connected.
+	// The cable from on-board to FMT-3631 is a straight-cable.  Pin-7 CSYNC is grounded on the FMT-3631 side, therefore
+	// connecting Pin-7 risks CSYNC directly connected to GND.  Experiment confirmed that pin-7 connection is not needed. (2026/06/22)
+	TOWNSIO_FMT_3632_1=                    0x1101, // bit 1 seems to tell the VRAM size, not confirmed.
+	TOWNSIO_FMT_3632_2=                    0x9100,
+	TOWNSIO_FMT_3632_3=                    0x9104,
+	// If Windows FMT-3632 driver is selected, and if I/O 0x1100 returns 0x80 (or at least high 2-bits matches 0x80),
+	// Windows driver checks 0x1101 next.  Most likely it is checking how large a RAM the board has.
+
 
 	TOWNSIO_CMOS_BASE=           0x3000,
 	TOWNSIO_CMOS_END=            0x4000,
@@ -650,7 +674,9 @@ enum
 	TOWNSIO_CMOS_RESET_REASON=      0x31B8, // SYSROM saves I/O 20H Reset Reason.
 	// 0x31CC MX's SYSROM writes zero on power-on.
 	TOWNSIO_CMOS_FUJITSU_IN_SJIS=   0x31D0, // Fujitsu in Shift-JIS Kanji
-	TOWNSIO_CMOS_DRIVE_ASSIGN=      0x31DC, // Type (0:FD 5:ROM 2:SCSI) and Unit
+	TOWNSIO_CMOS_DRIVE_ASSIGN=      0x31DC, // Type (0:FD 3:RAM 5:ROM 2:SCSI) and Unit
+	TOWNSIO_CMOS_RAM_DISK_SIZE_LOW= 0x321C, // In KB
+	TOWNSIO_CMOS_RAM_DISK_SIZE_HIGH=0x321E,
 	TOWNSIO_CMOS_SINGLE_DRIVE_MODE= 0x328C, // Evil single-drive mode.
 	TOWNSIO_CMOS_ALLOC_DICT_AREA=   0x32B2,
 	TOWNSIO_CMOS_CHECKSUM_ADJUST=   0x33CE,
@@ -1082,6 +1108,8 @@ enum	// Commands written to I/O TOWNSIO_VM_HOST_IF_CMD_STATUS=0x2386
 
 	TOWNS_VMIF_CMD_GET_VMFLAGS    =0x0E, // Capture VM control flags in EAX.
 	TOWNS_VMIF_CMD_RELEASE_CONSOLE_CMD=0x0F,  // Send console command to auto-typing.
+
+	TOWNS_VMIF_CMD_GET_MOUSE_POSITION=0x10, // Get mouse position in the host's window coordinate.  ESI=x, EDI=y, AL=b5:lb b3:rb, AH=0xFF.  Clear AH before doing it to see if it is in action.
 };
 
 enum
@@ -1163,6 +1191,7 @@ enum
 	TOWNS_APPSPECIFIC_ASUKA120,
 	TOWNS_APPSPECIFIC_DRAKKEN,
 	TOWNS_APPSPECIFIC_QODGAIDEN,
+	TOWNS_APPSPECIFIC_HABITAT,
 
 TOWNS_NUM_APPSPECIFIC
 };
